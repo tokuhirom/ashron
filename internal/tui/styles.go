@@ -17,91 +17,66 @@ var (
 
 	// Base styles
 	baseStyle = lipgloss.NewStyle().
-			Background(bgColor).
-			Foreground(fgColor)
+		Background(bgColor).
+		Foreground(fgColor)
 
 	// Header styles
 	headerStyle = lipgloss.NewStyle().
-			Background(primaryColor).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Padding(0, 1).
-			Bold(true)
+		Background(primaryColor).
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Padding(0, 1).
+		Bold(true)
 
 	// Chat area styles
 	chatViewStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor).
-			Padding(1)
+		Padding(1)
 
 	// Message styles
 	userMessageStyle = lipgloss.NewStyle().
-				Foreground(secondaryColor).
-				Bold(true).
-				MarginBottom(1)
+		Foreground(secondaryColor).
+		Bold(true).
+		MarginBottom(1)
 
 	assistantMessageStyle = lipgloss.NewStyle().
-				Foreground(fgColor).
-				MarginBottom(1)
+		Foreground(fgColor).
+		MarginBottom(1)
 
 	systemMessageStyle = lipgloss.NewStyle().
-				Foreground(mutedColor).
-				Italic(true).
-				MarginBottom(1)
+		Foreground(mutedColor).
+		Italic(true).
+		MarginBottom(1)
 
 	// Tool styles
 	toolCallStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#2a2a2a")).
-			Foreground(accentColor).
-			Padding(0, 1).
-			MarginBottom(1)
+		Background(lipgloss.Color("#2a2a2a")).
+		Foreground(accentColor).
+		Padding(0, 1).
+		MarginBottom(1)
 
 	toolResultStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#2a2a2a")).
-			Foreground(mutedColor).
-			Padding(0, 1).
-			MarginBottom(1)
-
-	// Input area styles
-	inputStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(primaryColor).
-			Padding(0, 1)
-
-	promptStyle = lipgloss.NewStyle().
-			Foreground(secondaryColor).
-			Bold(true)
+		Background(lipgloss.Color("#2a2a2a")).
+		Foreground(mutedColor).
+		Padding(0, 1).
+		MarginBottom(1)
 
 	// Status bar styles
 	statusBarStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#2a2a2a")).
-			Foreground(fgColor).
-			Padding(0, 1)
+		Background(lipgloss.Color("#2a2a2a")).
+		Foreground(fgColor).
+		Padding(0, 1)
 
 	// Error and warning styles
 	errorStyle = lipgloss.NewStyle().
-			Foreground(errorColor).
-			Bold(true)
+		Foreground(errorColor).
+		Bold(true)
 
 	warningStyle = lipgloss.NewStyle().
-			Foreground(warningColor).
-			Bold(true)
-
-	// Help styles
-	helpStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Padding(1)
-
-	// Code block styles
-	codeBlockStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#0d0d0d")).
-			Foreground(lipgloss.Color("#00FF00")).
-			Padding(1).
-			MarginTop(1).
-			MarginBottom(1)
+		Foreground(warningColor).
+		Bold(true)
 
 	// Spinner style
 	spinnerStyle = lipgloss.NewStyle().
-			Foreground(primaryColor)
+		Foreground(primaryColor)
 )
 
 // GetWidth returns the terminal width with padding
@@ -117,22 +92,4 @@ func RenderHeader(title string) string {
 // RenderStatusBar renders the status bar with given text
 func RenderStatusBar(text string) string {
 	return statusBarStyle.Width(GetWidth()).Render(text)
-}
-
-// RenderError renders an error message
-func RenderError(msg string) string {
-	return errorStyle.Render("✗ " + msg)
-}
-
-// RenderWarning renders a warning message
-func RenderWarning(msg string) string {
-	return warningStyle.Render("⚠ " + msg)
-}
-
-// RenderSuccess renders a success message
-func RenderSuccess(msg string) string {
-	return lipgloss.NewStyle().
-		Foreground(secondaryColor).
-		Bold(true).
-		Render("✓ " + msg)
 }
