@@ -58,7 +58,7 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		result = e.executeCommand(toolCall.ID, args)
 	case "list_directory":
 		result = e.listDirectory(toolCall.ID, args)
-	case "generate_agents_md":
+	case "init":
 		result = e.generateAgentsMD(toolCall.ID, args)
 	case "list_tools":
 		result = e.listTools(toolCall.ID, args)
@@ -320,7 +320,7 @@ func (e *Executor) generateAgentsMD(toolCallID string, args map[string]interface
 
 	// Get current directory as root path
 	rootPath := "."
-	
+
 	// Generate AGENTS.md
 	content, err := GenerateAgentsMD(rootPath)
 	if err != nil {

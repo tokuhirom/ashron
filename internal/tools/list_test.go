@@ -18,7 +18,7 @@ func TestListTools(t *testing.T) {
 		"write_file",
 		"execute_command",
 		"list_directory",
-		"generate_agents_md",
+		"init",
 		"list_tools",
 	}
 
@@ -52,7 +52,7 @@ func TestListToolsJSON(t *testing.T) {
 		`"write_file"`,
 		`"execute_command"`,
 		`"list_directory"`,
-		`"generate_agents_md"`,
+		`"init"`,
 		`"list_tools"`,
 	}
 

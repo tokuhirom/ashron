@@ -55,7 +55,7 @@ func ListTools() (string, error) {
 			Required: []string{"path"},
 		},
 		{
-			Name:        "generate_agents_md",
+			Name:        "init",
 			Description: "Generate an AGENTS.md file for the project",
 			Parameters:  map[string]string{},
 			Required:    []string{},
@@ -106,41 +106,41 @@ func ListToolsJSON() (string, error) {
 			"required": []string{"path"},
 		},
 		{
-			"name":        "write_file",
-			"description": "Write content to a file",
-			"parameters": map[string]string{
+			Name:        "write_file",
+			Description: "Write content to a file",
+			Parameters: map[string]string{
 				"path":    "The file path to write",
 				"content": "The content to write",
 			},
 			"required": []string{"path", "content"},
 		},
 		{
-			"name":        "execute_command",
-			"description": "Execute a shell command",
-			"parameters": map[string]string{
+			Name:        "execute_command",
+			Description: "Execute a shell command",
+			Parameters: map[string]string{
 				"command":     "The command to execute",
 				"working_dir": "Working directory for the command",
 			},
 			"required": []string{"command"},
 		},
 		{
-			"name":        "list_directory",
-			"description": "List files in a directory",
-			"parameters": map[string]string{
+			Name:        "list_directory",
+			Description: "List files in a directory",
+			Parameters: map[string]string{
 				"path": "The directory path to list",
 			},
 			"required": []string{"path"},
 		},
 		{
-			"name":        "generate_agents_md",
-			"description": "Generate an AGENTS.md file for the project",
-			"parameters":  map[string]string{},
+			Name:        "init",
+			Description: "Generate an AGENTS.md file for the project",
+			Parameters:  map[string]string{},
 			"required":    []string{},
 		},
 		{
-			"name":        "list_tools",
-			"description": "List all available tools and their descriptions",
-			"parameters":  map[string]string{},
+			Name:        "list_tools",
+			Description: "List all available tools and their descriptions",
+			Parameters:  map[string]string{},
 			"required":    []string{},
 		},
 	}

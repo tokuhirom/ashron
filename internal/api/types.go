@@ -183,7 +183,7 @@ var BuiltinTools = []Tool{
 	{
 		Type: "function",
 		Function: FunctionDef{
-			Name:        "generate_agents_md",
+			Name:        "init",
 			Description: "Generate an AGENTS.md file for the project",
 			Parameters: json.RawMessage(`{
 				"type": "object",
