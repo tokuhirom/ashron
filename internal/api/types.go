@@ -180,6 +180,35 @@ var BuiltinTools = []Tool{
 			}`),
 		},
 	},
+	{
+		Type: "function",
+		Function: FunctionDef{
+			Name:        "generate_agents_md",
+			Description: "Generate an AGENTS.md file for the project",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {},
+				"required": []
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: FunctionDef{
+			Name:        "list_tools",
+			Description: "List all available tools and their descriptions",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"format": {
+						"type": "string",
+						"description": "Output format: 'text' (default) or 'json'"
+					}
+				},
+				"required": []
+			}`),
+		},
+	},
 }
 
 // Helper function to create a user message

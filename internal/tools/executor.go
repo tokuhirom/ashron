@@ -58,6 +58,10 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		result = e.executeCommand(toolCall.ID, args)
 	case "list_directory":
 		result = e.listDirectory(toolCall.ID, args)
+	case "generate_agents_md":
+		result = e.generateAgentsMD(toolCall.ID, args)
+	case "list_tools":
+		result = e.listTools(toolCall.ID, args)
 	default:
 		slog.Error("Unknown tool requested", "tool", toolCall.Function.Name)
 		result.Error = fmt.Errorf("unknown tool: %s", toolCall.Function.Name)
@@ -302,6 +306,58 @@ func (e *Executor) listDirectory(toolCallID string, args map[string]interface{})
 	}
 
 	result.Output = output.String()
+	return result
+}
+
+// generateAgentsMD generates an AGENTS.md file for the project
+func (e *Executor) generateAgentsMD(toolCallID string, args map[string]interface{}) api.ToolResult {
+	result := api.ToolResult{
+		ToolCallID: toolCallID,
+	}
+
+	// Get current directory as root path
+	rootPath := "."
+	
+	// Generate AGENTS.md
+	content, err := GenerateAgentsMD(rootPath)
+	if err != nil {
+		result.Error = err
+		result.Output = fmt.Sprintf("Error generating AGENTS.md: %v", err)
+		return result
+	}
+
+	result.Output = fmt.Sprintf("Successfully generated AGENTS.md\n\n%s", content)
+	return result
+}
+
+// listTools lists all available tools
+func (e *Executor) listTools(toolCallID string, args map[string]interface{}) api.ToolResult {
+	result := api.ToolResult{
+		ToolCallID: toolCallID,
+	}
+
+	// Check if JSON format is requested
+	format := ""
+	if f, ok := args["format"].(string); ok {
+		format = f
+	}
+
+	var output string
+	var err error
+
+	if format == "json" {
+		output, err = ListToolsJSON()
+	} else {
+		output, err = ListTools()
+	}
+
+	if err != nil {
+		result.Error = err
+		result.Output = fmt.Sprintf("Error listing tools: %v", err)
+		return result
+	}
+
+	result.Output = output
 	return result
 }
 

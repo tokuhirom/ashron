@@ -12,6 +12,7 @@ Ashron is a TUI-based AI coding assistant for developers. It provides an interac
 - **Context Management** - Smart context compaction with `/compact` command
 - **Flexible Configuration** - YAML-based configuration with environment variable support
 - **Safety First** - Tool approval system with configurable auto-approval
+- **AGENTS.md** - [AGENTS.md](https://agents.md) supported.
 
 ## Installation
 
