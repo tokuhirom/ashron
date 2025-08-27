@@ -1,0 +1,35 @@
+# lefthook.yml
+# Git hooks manager configuration
+
+pre-commit:
+  parallel: false
+  commands:
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run --fix {staged_files}
+    gofmt:
+      glob: "*.go"
+      run: gofmt -w {staged_files} && git add {staged_files}
+
+pre-push:
+  parallel: true
+  commands:
+    tests:
+      run: go test -race -timeout 30s ./...
+    build:
+      run: go build -v ./...
+    golangci-lint:
+      run: golangci-lint run
+
+commit-msg:
+  commands:
+    check-commit-msg:
+      run: |
+        # Check commit message format
+        commit_regex='^(feat|fix|docs|style|refactor|test|chore|build|ci)(\(.+\))?: .{1,50}'
+        if ! grep -qE "$commit_regex" "$1"; then
+          echo "Commit message does not follow conventional format!"
+          echo "Format: <type>(<scope>): <subject>"
+          echo "Example: feat(api): add streaming support"
+          exit 1
+        fi
