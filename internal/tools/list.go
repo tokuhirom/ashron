@@ -106,41 +106,41 @@ func ListToolsJSON() (string, error) {
 			"required": []string{"path"},
 		},
 		{
-			Name:        "write_file",
-			Description: "Write content to a file",
-			Parameters: map[string]string{
+			"name":        "write_file",
+			"description": "Write content to a file",
+			"parameters": map[string]string{
 				"path":    "The file path to write",
 				"content": "The content to write",
 			},
 			"required": []string{"path", "content"},
 		},
 		{
-			Name:        "execute_command",
-			Description: "Execute a shell command",
-			Parameters: map[string]string{
+			"name":        "execute_command",
+			"description": "Execute a shell command",
+			"parameters": map[string]string{
 				"command":     "The command to execute",
 				"working_dir": "Working directory for the command",
 			},
 			"required": []string{"command"},
 		},
 		{
-			Name:        "list_directory",
-			Description: "List files in a directory",
-			Parameters: map[string]string{
+			"name":        "list_directory",
+			"description": "List files in a directory",
+			"parameters": map[string]string{
 				"path": "The directory path to list",
 			},
 			"required": []string{"path"},
 		},
 		{
-			Name:        "init",
-			Description: "Generate an AGENTS.md file for the project",
-			Parameters:  map[string]string{},
+			"name":        "init",
+			"description": "Generate an AGENTS.md file for the project",
+			"parameters":  map[string]string{},
 			"required":    []string{},
 		},
 		{
-			Name:        "list_tools",
-			Description: "List all available tools and their descriptions",
-			Parameters:  map[string]string{},
+			"name":        "list_tools",
+			"description": "List all available tools and their descriptions",
+			"parameters":  map[string]string{},
 			"required":    []string{},
 		},
 	}

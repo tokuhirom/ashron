@@ -237,10 +237,22 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
 		}
 		result.Output = string(out)
+		
+		// Log and display the command output
+		slog.Info("Command execution completed",
+			slog.String("command", command),
+			slog.String("output", result.Output))
+		fmt.Fprintf(os.Stderr, "Command output:\n%s\n", result.Output)
 
 	case err := <-errChan:
 		result.Error = err
 		result.Output = fmt.Sprintf("Command failed: %v", err)
+		
+		// Log and display the error
+		slog.Error("Command execution failed",
+			slog.String("command", command),
+			slog.String("error", err.Error()))
+		fmt.Fprintf(os.Stderr, "Command failed: %v\n", err)
 
 	case <-timer.C:
 		// Kill the process on timeout
@@ -249,6 +261,12 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		}
 		result.Error = fmt.Errorf("command timed out after %v", timeout)
 		result.Output = fmt.Sprintf("Error: Command timed out after %v", timeout)
+		
+		// Log and display the timeout
+		slog.Error("Command execution timed out",
+			slog.String("command", command),
+			slog.Duration("timeout", timeout))
+		fmt.Fprintf(os.Stderr, "Command timed out after %v\n", timeout)
 	}
 
 	return result
