@@ -203,6 +203,9 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 	}
 
 	// Create command
+	slog.Info("executing command by 'sh -c'",
+		slog.String("command", command),
+		slog.String("workingDir", workingDir))
 	cmd := exec.Command("sh", "-c", command)
 	if workingDir != "" {
 		cmd.Dir = workingDir
