@@ -240,14 +240,6 @@ func NewUserMessage(content string) Message {
 	}
 }
 
-// Helper function to create an assistant message
-func NewAssistantMessage(content string) Message {
-	return Message{
-		Role:    "assistant",
-		Content: content,
-	}
-}
-
 // Helper function to create a system message
 func NewSystemMessage(content string) Message {
 	return Message{
