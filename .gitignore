@@ -1,6 +1,6 @@
 lefthook
 coverage.txt
-ashron
+/ashron
 .idea/
 .vscode/
 *.log
