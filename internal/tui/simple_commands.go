@@ -33,7 +33,8 @@ type errorMsg struct {
 func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 	slog.Info("User sending message", "length", len(input))
 	
-	// Print user message
+	// Print user message with proper formatting
+	fmt.Print("\n")
 	fmt.Println(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
@@ -170,6 +171,12 @@ func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
 
 			// Check if finished
 			if choice.FinishReason == "stop" || choice.FinishReason == "tool_calls" {
+				// Add newlines after content if there was content
+				if fullContent.Len() > 0 {
+					fmt.Println()  // End the assistant's message line
+					fmt.Println()  // Add extra space before next prompt
+				}
+				
 				// Finalize tool calls with complete arguments
 				for idx, tc := range toolCallsByIndex {
 					if toolCallArgs[idx] != nil && toolCallArgs[idx].Len() > 0 {
@@ -182,7 +189,6 @@ func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
 					toolCalls = append(toolCalls, *tc)
 					
 					// Print tool call info
-					fmt.Println()
 					fmt.Println(lipgloss.NewStyle().
 						Background(lipgloss.Color("#2a2a2a")).
 						Foreground(lipgloss.Color("#FF7F50")).
@@ -281,6 +287,7 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 				Padding(0, 1).
 				Render("Tool Result:"))
 			fmt.Println(result.Output)
+			fmt.Println()
 			
 			// Add tool result message
 			m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))

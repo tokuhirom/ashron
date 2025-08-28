@@ -47,7 +47,7 @@ type SimpleModel struct {
 	// Conversation state
 	waitingForApproval bool
 	pendingToolCalls   []api.ToolCall
-	
+
 	// Current streaming message
 	currentMessage string
 }
@@ -206,7 +206,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Stream completed
 		m.loading = false
 		m.statusMsg = "Ready"
-		fmt.Println() // Add newline after response
+		// Newlines are already added in processStream
 
 	case toolExecutionMsg:
 		// Handle tool execution result
@@ -260,13 +260,16 @@ func (m *SimpleModel) View() string {
 
 	// Only show input area and status
 	if m.loading {
-		b.WriteString(m.spinner.View() + " Processing...")
+		// Show spinner during loading
+		b.WriteString("\n" + m.spinner.View() + " Processing...\n")
 	} else if m.waitingForApproval {
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
 			Render("⚠ Tools require approval. Press TAB to approve, ESC to cancel."))
+		b.WriteString("\n")
 	} else {
-		// Show input prompt
+		// Show textarea with prompt
+		b.WriteString("\n\n")
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#04B575")).
 			Bold(true).
@@ -327,7 +330,7 @@ Keyboard Shortcuts:
   Ctrl+L     - Clear screen
   Tab        - Approve pending tool calls
   Enter      - New line in input`
-	
+
 	fmt.Println(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render(help))
@@ -349,7 +352,7 @@ func (m *SimpleModel) showConfig() {
 		m.config.Context.AutoCompact,
 		m.config.Context.MaxTokens,
 	)
-	
+
 	fmt.Println(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render(config))
