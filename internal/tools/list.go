@@ -9,10 +9,10 @@ import (
 // ListTools generates a formatted list of available tools
 func ListTools() (string, error) {
 	var sb strings.Builder
-	
+
 	sb.WriteString("Available Tools:\n")
 	sb.WriteString("================\n\n")
-	
+
 	// Define tool information
 	tools := []struct {
 		Name        string
@@ -67,12 +67,12 @@ func ListTools() (string, error) {
 			Required:    []string{},
 		},
 	}
-	
+
 	// Format each tool
 	for i, tool := range tools {
 		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, tool.Name))
 		sb.WriteString(fmt.Sprintf("   Description: %s\n", tool.Description))
-		
+
 		if len(tool.Parameters) > 0 {
 			sb.WriteString("   Parameters:\n")
 			for param, desc := range tool.Parameters {
@@ -90,7 +90,7 @@ func ListTools() (string, error) {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	return sb.String(), nil
 }
 
@@ -138,11 +138,11 @@ func ListToolsJSON() (string, error) {
 			"required":    []string{},
 		},
 	}
-	
+
 	jsonData, err := json.MarshalIndent(tools, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal tools to JSON: %w", err)
 	}
-	
+
 	return string(jsonData), nil
 }

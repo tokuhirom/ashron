@@ -204,7 +204,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle streaming output - print it using tea.Printf
 		m.loading = false
 		m.statusMsg = "Ready"
-		
+
 		// Check if we have pending tool calls
 		if len(m.pendingToolCalls) > 0 {
 			m.checkToolApproval()
@@ -218,7 +218,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.executePendingTools(),
 			)
 		}
-		
+
 		// Agent finished processing - send notification
 		m.sendCompletionNotification()
 		return m, tea.Printf(msg.Content)
@@ -226,20 +226,20 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toolExecutionMsg:
 		// Handle tool execution result
 		m.handleToolResult(msg)
-		
+
 		// Print any output from tool execution
 		cmds := []tea.Cmd{}
 		if msg.output != "" {
 			cmds = append(cmds, tea.Printf(msg.output))
 		}
-		
+
 		if msg.hasMore {
 			cmds = append(cmds, m.continueConversation())
 		} else {
 			// All processing done - send notification
 			m.sendCompletionNotification()
 		}
-		
+
 		return m, tea.Batch(cmds...)
 
 	case errorMsg:
@@ -445,7 +445,7 @@ func (m *SimpleModel) continueConversation() tea.Cmd {
 func (m *SimpleModel) initProject() tea.Cmd {
 	// Get current directory as root path
 	rootPath := "."
-	
+
 	// Generate AGENTS.md
 	content, err := tools.GenerateAgentsMD(rootPath)
 	if err != nil {
@@ -454,7 +454,7 @@ func (m *SimpleModel) initProject() tea.Cmd {
 			Render(fmt.Sprintf("Error generating AGENTS.md: %v", err))
 		return tea.Printf("\n%s\n", errMsg)
 	}
-	
+
 	// Write the file
 	if err := os.WriteFile("AGENTS.md", []byte(content), 0644); err != nil {
 		errMsg := lipgloss.NewStyle().
@@ -462,24 +462,24 @@ func (m *SimpleModel) initProject() tea.Cmd {
 			Render(fmt.Sprintf("Error writing AGENTS.md: %v", err))
 		return tea.Printf("\n%s\n", errMsg)
 	}
-	
+
 	// Show success message and content preview
 	output := "\n" + lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
 		Render("✓ Successfully generated AGENTS.md") + "\n\n"
-	
+
 	// Show first few lines of the content as preview
 	lines := strings.Split(content, "\n")
 	preview := strings.Join(lines[:min(20, len(lines))], "\n")
 	if len(lines) > 20 {
 		preview += "\n..."
 	}
-	
+
 	output += lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render(preview) + "\n"
-		
+
 	return tea.Printf(output)
 }
 
@@ -501,11 +501,11 @@ func (m *SimpleModel) sendCompletionNotification() {
 			break
 		}
 	}
-	
+
 	// Create notification
 	title := "Ashron Ready"
 	msg := "Your assistant has finished processing"
-	
+
 	// Add a preview of the response if available
 	if lastMessage != "" {
 		// Truncate the message for notification
@@ -517,7 +517,7 @@ func (m *SimpleModel) sendCompletionNotification() {
 		preview = strings.ReplaceAll(preview, "\n", " ")
 		msg = preview
 	}
-	
+
 	// Send the notification
 	if err := beeep.Notify(title, msg, ""); err != nil {
 		slog.Debug("Failed to send completion notification", "error", err)
