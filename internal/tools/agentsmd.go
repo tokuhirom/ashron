@@ -66,13 +66,13 @@ func getProjectStructure(rootPath string) ([]fileInfo, error) {
 			return nil // Skip errors
 		}
 
-		// Get relative path
+		// Get a relative path
 		relPath, err := filepath.Rel(rootPath, path)
 		if err != nil {
 			return nil
 		}
 
-		// Check if should ignore
+		// Check if we should ignore
 		for _, pattern := range ignorePatterns {
 			if matched, _ := filepath.Match(pattern, d.Name()); matched {
 				if d.IsDir() {
@@ -191,7 +191,7 @@ func detectLanguage(path string) string {
 func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent string) string {
 	var sb strings.Builder
 
-	// Detect project type and main language
+	// Detect a project type and main language
 	projectType, mainLang := detectProjectType(files)
 
 	// Parse existing content for custom sections

@@ -33,7 +33,9 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		ToolCallID: toolCall.ID,
 	}
 
-	slog.Info("Executing tool", "tool", toolCall.Function.Name, "id", toolCall.ID)
+	slog.Info("Executing tool",
+		slog.String("tool", toolCall.Function.Name),
+		slog.String("id", toolCall.ID))
 
 	// Parse arguments
 	var args map[string]interface{}
@@ -69,10 +71,14 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 	}
 
 	if result.Error != nil {
-		slog.Error("Tool execution failed", "tool", toolCall.Function.Name, "error", result.Error)
+		slog.Error("Tool execution failed",
+			slog.String("tool", toolCall.Function.Name),
+			slog.Any("error", result.Error))
 	} else if toolCall.Function.Name != "read_file" {
 		// For read_file, we already logged with truncation above
-		slog.Info("Tool execution completed", "tool", toolCall.Function.Name, "outputLength", len(result.Output))
+		slog.Info("Tool execution completed",
+			slog.String("tool", toolCall.Function.Name),
+			slog.Int("outputLength", len(result.Output)))
 	}
 
 	return result
@@ -219,7 +225,7 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		return result
 	}
 
-	// Get working directory if specified
+	// Get a working directory if specified
 	workingDir := ""
 	if wd, ok := args["working_dir"].(string); ok {
 		workingDir = wd
