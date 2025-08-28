@@ -54,6 +54,13 @@ func NewCommandRegistry() *CommandRegistry {
 					return tea.Printf("\n%s\n", msg)
 				},
 			},
+			"/commit": {
+				Name:        "/commit",
+				Description: "Commit changes to git with a message",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.SendMessage("Run git status/git diff/git diff --cached to check the current changes, then generate commit message. and commit it.")
+				},
+			},
 			"/init": {
 				Name:        "/init",
 				Description: "Generate AGENTS.md from current directory",
