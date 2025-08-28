@@ -192,11 +192,19 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tiCmd
 			}
 
-		case tea.KeyTab:
-			// Handle tool approval
+		case tea.KeyRunes:
+			// Handle tool approval with y/n
 			if m.waitingForApproval {
-				m.approvePendingTools()
-				return m, m.executePendingTools()
+				switch string(msg.Runes) {
+				case "y", "Y":
+					m.approvePendingTools()
+					return m, m.executePendingTools()
+				case "n", "N":
+					m.cancelPendingTools()
+					return m, tea.Printf("\n" + lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#FF3333")).
+						Render("✗ Tool execution cancelled\n"))
+				}
 			}
 		}
 
@@ -283,7 +291,7 @@ func (m *SimpleModel) View() string {
 	} else if m.waitingForApproval {
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
-			Render("⚠ Tools require approval. Press TAB to approve, ESC to cancel."))
+			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
 		b.WriteString("\n")
 	} else {
 		// Show textarea with prompt
@@ -346,7 +354,7 @@ Keyboard Shortcuts:
   Alt+Enter  - Send message (alternative)
   Ctrl+C     - Cancel current operation or exit
   Ctrl+L     - Clear screen
-  Tab        - Approve pending tool calls
+  y/n        - Approve/Cancel tool execution (when prompted)
   Enter      - New line in input`
 
 	return tea.Println(lipgloss.NewStyle().
@@ -427,6 +435,13 @@ func (m *SimpleModel) approvePendingTools() {
 	m.waitingForApproval = false
 	m.loading = true
 	m.statusMsg = "Executing tools..."
+}
+
+// cancelPendingTools cancels pending tool calls
+func (m *SimpleModel) cancelPendingTools() {
+	m.waitingForApproval = false
+	m.pendingToolCalls = nil
+	m.statusMsg = "Tool execution cancelled"
 }
 
 // handleToolResult processes tool execution results

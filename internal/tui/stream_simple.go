@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -193,13 +194,32 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 					}
 					toolCalls = append(toolCalls, *tc)
 
-					// Add tool call info to output
+					// Add tool call info to output with arguments
 					output.WriteString(lipgloss.NewStyle().
 						Background(lipgloss.Color("#2a2a2a")).
 						Foreground(lipgloss.Color("#FF7F50")).
 						Padding(0, 1).
 						Render(fmt.Sprintf("🔧 Calling %s", tc.Function.Name)))
 					output.WriteString("\n")
+
+					// Display arguments in a readable format
+					if tc.Function.Arguments != "" && tc.Function.Arguments != "{}" {
+						var args map[string]interface{}
+						if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
+							output.WriteString(lipgloss.NewStyle().
+								Foreground(lipgloss.Color("#626262")).
+								PaddingLeft(3).
+								Render("Arguments:"))
+							output.WriteString("\n")
+							for key, value := range args {
+								output.WriteString(lipgloss.NewStyle().
+									Foreground(lipgloss.Color("#626262")).
+									PaddingLeft(5).
+									Render(fmt.Sprintf("• %s: %v", key, value)))
+								output.WriteString("\n")
+							}
+						}
+					}
 
 					slog.Debug("Finalized tool call",
 						"id", tc.ID,
