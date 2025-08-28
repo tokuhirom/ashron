@@ -70,7 +70,8 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 
 	if result.Error != nil {
 		slog.Error("Tool execution failed", "tool", toolCall.Function.Name, "error", result.Error)
-	} else {
+	} else if toolCall.Function.Name != "read_file" {
+		// For read_file, we already logged with truncation above
 		slog.Info("Tool execution completed", "tool", toolCall.Function.Name, "outputLength", len(result.Output))
 	}
 
@@ -124,6 +125,22 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 	result.Output = string(content)
 	if limited.N == 0 {
 		result.Output += fmt.Sprintf("\n\n[File truncated at %d bytes]", e.config.MaxOutputSize)
+	}
+
+	// Log with truncated content for readability
+	lines := strings.Split(string(content), "\n")
+	if len(lines) > 5 {
+		truncatedLog := strings.Join(lines[:5], "\n")
+		slog.Info("File read completed",
+			slog.String("path", path),
+			slog.Int("totalLines", len(lines)),
+			slog.Int("totalBytes", len(content)),
+			slog.String("preview", truncatedLog+"\n[... truncated in log, full content returned]"))
+	} else {
+		slog.Info("File read completed",
+			slog.String("path", path),
+			slog.Int("totalBytes", len(content)),
+			slog.String("content", string(content)))
 	}
 
 	return result
