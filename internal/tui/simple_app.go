@@ -400,7 +400,7 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 		m.statusMsg = "Screen cleared"
 		return tea.Printf(b.String())
 	case "/compact":
-		m.compactContext()
+		return m.compactContext()
 	case "/init":
 		return m.initProject()
 	case "/exit", "/quit":
@@ -412,8 +412,6 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Unknown command: %s", parts[0])))
 	}
-
-	return nil
 }
 
 // showHelp displays available commands
