@@ -62,7 +62,10 @@ func Setup(logFilePath string) error {
 // Close closes the log file if open
 func Close() {
 	if logFile != nil {
-		logFile.Close()
+		if err := logFile.Close(); err != nil {
+			slog.Error("failed to close log file",
+				slog.Any("error", err))
+		}
 	}
 }
 

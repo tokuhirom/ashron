@@ -60,7 +60,12 @@ func (c *Client) CreateChatCompletion(ctx context.Context, req *ChatCompletionRe
 		slog.Error("Failed to send request", "error", err)
 		return nil, fmt.Errorf("send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn("Failed to close response body",
+				slog.Any("error", err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Error("API returned error", "status", resp.StatusCode)
@@ -102,7 +107,12 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRe
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				slog.Warn("Failed to close response body",
+					slog.Any("error", err))
+			}
+		}()
 		slog.Error("Streaming API returned error", "status", resp.StatusCode)
 		return nil, c.handleError(resp)
 	}
@@ -111,7 +121,12 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRe
 
 	go func() {
 		defer close(eventChan)
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				slog.Warn("Failed to close response body",
+					slog.Any("error", err))
+			}
+		}()
 
 		reader := bufio.NewReader(resp.Body)
 

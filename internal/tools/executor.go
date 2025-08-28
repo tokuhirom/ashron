@@ -107,7 +107,13 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 		result.Output = fmt.Sprintf("Error reading file: %v", err)
 		return result
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			slog.Error("failed to close file",
+				slog.String("path", path),
+				slog.Any("error", err))
+		}
+	}()
 
 	// Limit file size
 	limited := &io.LimitedReader{
@@ -292,7 +298,11 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 	case <-timer.C:
 		// Kill the process on timeout
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			if err := cmd.Process.Kill(); err != nil {
+				slog.Error("failed to kill command process after timeout",
+					slog.String("command", command),
+					slog.Any("error", err))
+			}
 		}
 		result.Error = fmt.Errorf("command timed out after %v", timeout)
 		result.Output = fmt.Sprintf("Error: Command timed out after %v", timeout)
@@ -492,7 +502,10 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 	case <-timer.C:
 		// Kill the process on timeout
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			if err := cmd.Process.Kill(); err != nil {
+				slog.Error("failed to kill git grep process after timeout",
+					"error", err)
+			}
 		}
 		result.Error = fmt.Errorf("git grep timed out after %v", timeout)
 		result.Output = fmt.Sprintf("Error: Git grep timed out after %v", timeout)
