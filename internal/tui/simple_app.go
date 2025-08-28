@@ -52,6 +52,10 @@ type SimpleModel struct {
 
 	// Current streaming message
 	currentMessage string
+
+	// Operation context for better error messages
+	currentOperation string
+	lastUserInput    string
 }
 
 // NewSimpleModel creates a new simplified application model
@@ -198,6 +202,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch string(msg.Runes) {
 				case "y", "Y":
 					m.approvePendingTools()
+					m.currentOperation = "Executing approved tools"
 					return m, m.executePendingTools()
 				case "n", "N":
 					m.cancelPendingTools()
@@ -221,6 +226,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Auto-approve and execute
 			m.approvePendingTools()
+			m.currentOperation = "Executing approved tools"
 			return m, tea.Sequence(
 				tea.Printf(msg.Content),
 				m.executePendingTools(),
@@ -242,6 +248,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.hasMore {
+			m.currentOperation = "Processing tool results"
 			cmds = append(cmds, m.continueConversation())
 		} else {
 			// All processing done - send notification
@@ -254,10 +261,74 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.error
 		m.loading = false
 		m.statusMsg = "Error: " + msg.error.Error()
-		// Print error directly
-		fmt.Fprintln(os.Stderr, lipgloss.NewStyle().
+
+		// Provide more context for timeout errors
+		errorMessage := msg.error.Error()
+		if strings.Contains(errorMessage, "context deadline exceeded") ||
+			strings.Contains(errorMessage, "Client.Timeout") {
+			// Enhance timeout error message
+			errorOutput := "\n" + lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF3333")).
+				Bold(true).
+				Render("✗ Request Timeout") + "\n\n"
+
+			// Show what was being processed
+			if m.currentOperation != "" {
+				errorOutput += lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#FFA500")).
+					Render("What was happening:") + "\n"
+
+				errorOutput += lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#626262")).
+					PaddingLeft(2).
+					Render("• "+m.currentOperation) + "\n"
+
+				if m.lastUserInput != "" && len(m.lastUserInput) < 100 {
+					errorOutput += lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#626262")).
+						PaddingLeft(2).
+						Render("• Your message: \""+m.lastUserInput+"\"") + "\n"
+				} else if m.lastUserInput != "" {
+					errorOutput += lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#626262")).
+						PaddingLeft(2).
+						Render("• Your message: \""+m.lastUserInput[:97]+"...\"") + "\n"
+				}
+				errorOutput += "\n"
+			}
+
+			errorOutput += lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFA500")).
+				Render("Possible causes:") + "\n"
+
+			errorOutput += lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				PaddingLeft(2).
+				Render("• The model is processing a complex request\n"+
+					"  • Network connection is slow or unstable\n"+
+					"  • API service is experiencing high load\n"+
+					"  • Response size is very large\n") + "\n"
+
+			errorOutput += lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#04B575")).
+				Render("Try:") + "\n"
+
+			errorOutput += lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				PaddingLeft(2).
+				Render("• Simplifying your request\n" +
+					"  • Checking your internet connection\n" +
+					"  • Waiting a moment and trying again\n")
+
+			return m, tea.Printf(errorOutput)
+		}
+
+		// Print other errors normally
+		errorOutput := "\n" + lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
-			Render("✗ Error: "+msg.error.Error()))
+			Bold(true).
+			Render("✗ Error: "+errorMessage) + "\n"
+		return m, tea.Printf(errorOutput)
 
 	case spinner.TickMsg:
 		if m.loading {

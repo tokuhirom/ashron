@@ -43,6 +43,8 @@ func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 	m.loading = true
 	m.statusMsg = "Thinking..."
 	m.currentMessage = ""
+	m.currentOperation = "Processing user message"
+	m.lastUserInput = input
 
 	// Return a command that prints the user message and then processes
 	return tea.Sequence(
@@ -97,6 +99,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 		Render("Ashron: "))
 
 	slog.Debug("Starting to process stream")
+	m.currentOperation = "Receiving AI response"
 
 	for event := range stream {
 		if event.Error != nil {
@@ -178,6 +181,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 
 			// Check if finished
 			if choice.FinishReason == "stop" || choice.FinishReason == "tool_calls" {
+				m.currentOperation = "Finalizing response"
 				// Add newlines after content if there was content
 				if fullContent.Len() > 0 {
 					output.WriteString("\n\n")
