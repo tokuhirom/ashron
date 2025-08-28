@@ -10,5 +10,5 @@ var (
 
 	// Spinner style
 	spinnerStyle = lipgloss.NewStyle().
-		Foreground(primaryColor)
+			Foreground(primaryColor)
 )

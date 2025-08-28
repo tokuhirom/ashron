@@ -15,13 +15,15 @@
 
 ## Technologies
 
-* Use bubbletea to build interactive terminal UIs
+- Use bubbletea to build interactive terminal UIs
+  - Don't use `fmt.Printf`, `fmt.Println`, or `log.Print` directly; use `tea.Printf` instead.
+  - Use slog for logging. `slog.String` and others are useful for structured logging.
 
 ## Development Guidelines
 
 ### Code Style
 
-- Follow standard  conventions
+- Follow standard conventions
 - Maintain consistent formatting
 - Write clear, self-documenting code
 
