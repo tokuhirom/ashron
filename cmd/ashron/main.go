@@ -113,7 +113,6 @@ Options:
 
 Environment Variables:
   OPENAI_API_KEY        OpenAI API key
-  ASHRON_API_MODEL      Model to use
 
 Commands (in application):
   /help                 Show available commands
