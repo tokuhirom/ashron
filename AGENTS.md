@@ -15,6 +15,7 @@
 
 ## Technologies
 
+* Use bubbletea to build interactive terminal UIs
 
 ## Development Guidelines
 
