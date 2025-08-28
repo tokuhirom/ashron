@@ -117,9 +117,9 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRe
 				// Log the raw chunk for debugging
 				if len(chunk.Choices) > 0 {
 					slog.Debug("Raw stream chunk",
-						"content", chunk.Choices[0].Delta.Content,
-						"toolCalls", len(chunk.Choices[0].Delta.ToolCalls),
-						"finishReason", chunk.Choices[0].FinishReason)
+						slog.String("content", chunk.Choices[0].Delta.Content),
+						slog.Int("toolCalls", len(chunk.Choices[0].Delta.ToolCalls)),
+						slog.String("finishReason", chunk.Choices[0].FinishReason))
 				}
 
 				if len(chunk.Choices) > 0 {
