@@ -37,51 +37,6 @@ func NewClient(cfg *config.APIConfig) *Client {
 	}
 }
 
-// CreateChatCompletion sends a chat completion request
-func (c *Client) CreateChatCompletion(ctx context.Context, req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
-	req.Stream = false
-
-	slog.Debug("Creating chat completion", "model", req.Model, "messages", len(req.Messages))
-
-	body, err := json.Marshal(req)
-	if err != nil {
-		slog.Error("Failed to marshal request", "error", err)
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-
-	httpReq, err := c.newRequest(ctx, "POST", "/chat/completions", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	slog.Debug("Sending API request", "url", httpReq.URL.String())
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		slog.Error("Failed to send request", "error", err)
-		return nil, fmt.Errorf("send request: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Warn("Failed to close response body",
-				slog.Any("error", err))
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("API returned error", "status", resp.StatusCode)
-		return nil, c.handleError(resp)
-	}
-
-	var result ChatCompletionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		slog.Error("Failed to decode response", "error", err)
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-
-	slog.Debug("Chat completion successful", "id", result.ID, "usage", result.Usage.TotalTokens)
-	return &result, nil
-}
-
 // StreamChatCompletion sends a streaming chat completion request
 func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRequest) (<-chan StreamEvent, error) {
 	req.Stream = true
