@@ -239,10 +239,10 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 
 	go func() {
 		out, err := cmd.CombinedOutput()
+		output <- out
 		if err != nil {
 			errChan <- err
 		}
-		output <- out
 	}()
 
 	// Wait for completion or timeout
@@ -264,14 +264,28 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		// Don't send individual command notifications - the main completion notification handles it
 
 	case err := <-errChan:
+		// Also get the output even when command fails
+		select {
+		case out := <-output:
+			if len(out) > e.config.MaxOutputSize {
+				out = out[:e.config.MaxOutputSize]
+				out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
+			}
+			result.Output = string(out)
+			if result.Output == "" {
+				result.Output = fmt.Sprintf("Command failed: %v", err)
+			}
+		default:
+			result.Output = fmt.Sprintf("Command failed: %v", err)
+		}
 		result.Error = err
-		result.Output = fmt.Sprintf("Command failed: %v", err)
 
-		// Log and display the error
+		// Log and display the error with output
 		slog.Error("Command execution failed",
 			slog.String("command", command),
-			slog.String("error", err.Error()))
-		fmt.Fprintf(os.Stderr, "Command failed: %v\n", err)
+			slog.String("error", err.Error()),
+			slog.String("output", result.Output))
+		fmt.Fprintf(os.Stderr, "Command failed: %v\nOutput:\n%s\n", err, result.Output)
 
 		// Don't send individual command notifications - the main completion notification handles it
 

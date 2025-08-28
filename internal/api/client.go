@@ -24,10 +24,14 @@ type Client struct {
 
 // NewClient creates a new API client
 func NewClient(cfg *config.APIConfig) *Client {
+	timeout := time.Duration(cfg.Timeout) * time.Second
+	if timeout == 0 {
+		timeout = 60 * time.Second // fallback to 60 seconds if not configured
+	}
 	return &Client{
 		config: cfg,
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 		},
 		baseURL: strings.TrimSuffix(cfg.BaseURL, "/"),
 	}

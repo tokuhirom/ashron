@@ -22,6 +22,7 @@ type APIConfig struct {
 	Model       string  `mapstructure:"model"`
 	MaxTokens   int     `mapstructure:"max_tokens"`
 	Temperature float32 `mapstructure:"temperature"`
+	Timeout     int     `mapstructure:"timeout"` // Seconds
 }
 
 type UIConfig struct {
@@ -98,6 +99,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.model", "gpt-4-turbo-preview")
 	v.SetDefault("api.max_tokens", 4096)
 	v.SetDefault("api.temperature", 0.7)
+	v.SetDefault("api.timeout", 60) // 60 seconds default
 
 	// UI defaults
 	v.SetDefault("ui.theme", "dark")
@@ -165,6 +167,7 @@ api:
   model: gpt-4-turbo-preview
   max_tokens: 4096
   temperature: 0.7
+  timeout: 60  # API request timeout in seconds
 
 # UI Configuration
 ui:

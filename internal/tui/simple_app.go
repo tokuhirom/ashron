@@ -266,11 +266,33 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		errorMessage := msg.error.Error()
 		if strings.Contains(errorMessage, "context deadline exceeded") ||
 			strings.Contains(errorMessage, "Client.Timeout") {
+			// Calculate timeout duration for display
+			timeoutSeconds := m.config.API.Timeout
+			if timeoutSeconds == 0 {
+				timeoutSeconds = 60 // default fallback
+			}
+			timeoutDisplay := fmt.Sprintf("%d seconds", timeoutSeconds)
+			if timeoutSeconds >= 60 {
+				minutes := timeoutSeconds / 60
+				seconds := timeoutSeconds % 60
+				if seconds == 0 {
+					timeoutDisplay = fmt.Sprintf("%d minute", minutes)
+					if minutes > 1 {
+						timeoutDisplay = fmt.Sprintf("%d minutes", minutes)
+					}
+				} else {
+					timeoutDisplay = fmt.Sprintf("%d minute %d seconds", minutes, seconds)
+					if minutes > 1 {
+						timeoutDisplay = fmt.Sprintf("%d minutes %d seconds", minutes, seconds)
+					}
+				}
+			}
+
 			// Enhance timeout error message
 			errorOutput := "\n" + lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#FF3333")).
 				Bold(true).
-				Render("✗ Request Timeout") + "\n\n"
+				Render(fmt.Sprintf("✗ Request Timeout (after %s)", timeoutDisplay)) + "\n\n"
 
 			// Show what was being processed
 			if m.currentOperation != "" {
