@@ -29,7 +29,7 @@ func Setup(logFilePath string) error {
 	}
 
 	if logFilePath != "" {
-		// Open log file
+		// Open the log file
 		file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open log file: %w", err)
@@ -67,24 +67,4 @@ func Close() {
 				slog.Any("error", err))
 		}
 	}
-}
-
-// Debug logs a debug message with context
-func Debug(msg string, args ...any) {
-	slog.Debug(msg, args...)
-}
-
-// Info logs an info message with context
-func Info(msg string, args ...any) {
-	slog.Info(msg, args...)
-}
-
-// Warn logs a warning message with context
-func Warn(msg string, args ...any) {
-	slog.Warn(msg, args...)
-}
-
-// Error logs an error message with context
-func Error(msg string, args ...any) {
-	slog.Error(msg, args...)
 }
