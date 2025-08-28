@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,7 +12,7 @@ import (
 	"github.com/tokuhirom/ashron/internal/api"
 )
 
-// Message types for tea.Cmd (duplicated from commands.go for SimpleModel)
+// Message types for tea.Cmd
 type streamMsg struct {
 	chunk *api.StreamResponse
 }
@@ -23,23 +22,27 @@ type streamCompleteMsg struct{}
 type toolExecutionMsg struct {
 	results []api.ToolResult
 	hasMore bool
+	output  string
 }
 
 type errorMsg struct {
 	error error
 }
 
+// StreamOutput represents output to be printed
+type StreamOutput struct {
+	Content string
+}
+
 // sendMessage sends a user message to the API (SimpleModel version)
 func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 	slog.Info("User sending message", "length", len(input))
 	
-	// Print user message with proper formatting
-	fmt.Print("\n")
-	fmt.Println(lipgloss.NewStyle().
+	// Store the message for display
+	userMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
-		Render("You: ") + input)
-	fmt.Println()
+		Render("You: ") + input
 	
 	m.addUserMessage(input)
 	m.textarea.SetValue("")
@@ -47,6 +50,15 @@ func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 	m.statusMsg = "Thinking..."
 	m.currentMessage = ""
 
+	// Return a command that prints the user message and then processes
+	return tea.Sequence(
+		tea.Printf("\n%s\n\n", userMsg),
+		m.processMessage(),
+	)
+}
+
+// processMessage handles the actual API call
+func (m *SimpleModel) processMessage() tea.Cmd {
 	return func() tea.Msg {
 		// Check if context needs compaction
 		if m.config.Context.AutoCompact {
@@ -71,21 +83,22 @@ func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 		}
 
 		// Start handling stream
-		return m.processStream(stream)
+		return m.processStreamNew(stream)
 	}
 }
 
-// processStream processes streaming responses (SimpleModel version)
-func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
+// processStreamNew processes streaming responses with proper output collection
+func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 	var fullContent strings.Builder
+	var output strings.Builder  // Collects all output to print
 	var toolCalls []api.ToolCall
 	var chunkCount int
 	// Map to accumulate tool call arguments by index
 	toolCallArgs := make(map[int]*strings.Builder)
 	toolCallsByIndex := make(map[int]*api.ToolCall)
 	
-	// Print assistant label at start
-	fmt.Print(lipgloss.NewStyle().
+	// Add assistant label
+	output.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FAFAFA")).
 		Render("Ashron: "))
 
@@ -103,8 +116,8 @@ func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
 
 			// Handle content
 			if choice.Delta.Content != "" {
-				// Print content directly to stdout as it streams
-				fmt.Print(choice.Delta.Content)
+				// Collect content for output
+				output.WriteString(choice.Delta.Content)
 				fullContent.WriteString(choice.Delta.Content)
 				slog.Debug("Received content chunk", "chunk", chunkCount, "contentLength", len(choice.Delta.Content), "totalLength", fullContent.Len())
 
@@ -173,8 +186,7 @@ func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
 			if choice.FinishReason == "stop" || choice.FinishReason == "tool_calls" {
 				// Add newlines after content if there was content
 				if fullContent.Len() > 0 {
-					fmt.Println()  // End the assistant's message line
-					fmt.Println()  // Add extra space before next prompt
+					output.WriteString("\n\n")
 				}
 				
 				// Finalize tool calls with complete arguments
@@ -188,12 +200,13 @@ func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
 					}
 					toolCalls = append(toolCalls, *tc)
 					
-					// Print tool call info
-					fmt.Println(lipgloss.NewStyle().
+					// Add tool call info to output
+					output.WriteString(lipgloss.NewStyle().
 						Background(lipgloss.Color("#2a2a2a")).
 						Foreground(lipgloss.Color("#FF7F50")).
 						Padding(0, 1).
 						Render(fmt.Sprintf("🔧 Calling %s", tc.Function.Name)))
+					output.WriteString("\n")
 					
 					slog.Debug("Finalized tool call",
 						"id", tc.ID,
@@ -216,78 +229,40 @@ func (m *SimpleModel) processStream(stream <-chan api.StreamEvent) tea.Msg {
 					m.messages = append(m.messages, msg)
 				}
 
-				// Handle tool calls if any
+				// Store tool calls for processing
 				if len(toolCalls) > 0 {
 					m.pendingToolCalls = toolCalls
-					return toolExecutionMsg{
-						results: nil,
-						hasMore: false, // Will trigger tool approval check
-					}
 				}
 
-				return streamCompleteMsg{}
+				// Return the complete output as a StreamOutput message
+				return StreamOutput{Content: output.String()}
 			}
 		}
 	}
 
 	// Stream ended without proper finish
-	return streamCompleteMsg{}
-}
-
-// checkToolApproval checks if tools need approval (SimpleModel version)
-func (m *SimpleModel) checkToolApproval() {
-	needsApproval := false
-	for _, tc := range m.pendingToolCalls {
-		if !m.isAutoApproved(tc.Function.Name) {
-			needsApproval = true
-			break
-		}
-	}
-
-	if needsApproval {
-		m.waitingForApproval = true
-		m.loading = false
-		m.statusMsg = "Tools require approval. Press TAB to approve."
-	} else {
-		m.approvePendingTools()
-		m.executePendingTools()
-	}
-}
-
-// isAutoApproved checks if a tool is auto-approved (SimpleModel version)
-func (m *SimpleModel) isAutoApproved(toolName string) bool {
-	for _, approved := range m.config.Tools.AutoApprove {
-		if approved == toolName {
-			return true
-		}
-	}
-	return false
-}
-
-// approvePendingTools approves pending tool calls (SimpleModel version)
-func (m *SimpleModel) approvePendingTools() {
-	m.waitingForApproval = false
-	m.loading = true
-	m.statusMsg = "Executing tools..."
+	return StreamOutput{Content: output.String()}
 }
 
 // executePendingTools executes approved tool calls (SimpleModel version)
 func (m *SimpleModel) executePendingTools() tea.Cmd {
 	return func() tea.Msg {
+		var output strings.Builder
 		var results []api.ToolResult
 
 		for _, tc := range m.pendingToolCalls {
 			result := m.toolExec.Execute(tc)
 			results = append(results, result)
 
-			// Print tool result
-			fmt.Println(lipgloss.NewStyle().
+			// Collect tool result output
+			output.WriteString(lipgloss.NewStyle().
 				Background(lipgloss.Color("#2a2a2a")).
 				Foreground(lipgloss.Color("#626262")).
 				Padding(0, 1).
 				Render("Tool Result:"))
-			fmt.Println(result.Output)
-			fmt.Println()
+			output.WriteString("\n")
+			output.WriteString(result.Output)
+			output.WriteString("\n\n")
 			
 			// Add tool result message
 			m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))
@@ -295,24 +270,13 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 
 		m.pendingToolCalls = nil
 
-		// Continue conversation with tool results
+		// Return the output and indicate we need to continue
 		return toolExecutionMsg{
 			results: results,
 			hasMore: true,
+			output: output.String(),
 		}
 	}
-}
-
-// handleToolResult processes tool execution results (SimpleModel version)
-func (m *SimpleModel) handleToolResult(msg toolExecutionMsg) {
-	if msg.hasMore {
-		m.statusMsg = "Processing tool results..."
-	}
-}
-
-// continueConversation continues after tool execution (SimpleModel version)
-func (m *SimpleModel) continueConversation() tea.Cmd {
-	return m.sendContinuation()
 }
 
 // sendContinuation sends a continuation request (SimpleModel version)
@@ -327,45 +291,19 @@ func (m *SimpleModel) sendContinuation() tea.Cmd {
 		}
 
 		// Process the stream
-		return m.processStream(stream)
+		return m.processStreamNew(stream)
 	}
 }
 
 // compactContext compacts the conversation context (SimpleModel version)
-func (m *SimpleModel) compactContext() {
+func (m *SimpleModel) compactContext() tea.Cmd {
 	originalCount := len(m.messages)
 	m.messages = m.contextMgr.Compact(m.messages)
 	newCount := len(m.messages)
 
-	fmt.Fprintln(os.Stderr, lipgloss.NewStyle().
+	msg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
-		Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount)))
-}
-
-// handleStreamMessage processes a stream message (SimpleModel version)
-func (m *SimpleModel) handleStreamMessage(msg streamMsg) {
-	if msg.chunk != nil && len(msg.chunk.Choices) > 0 {
-		content := msg.chunk.Choices[0].Delta.Content
-		
-		// Print content directly
-		if content != "" {
-			fmt.Print(content)
-			m.currentMessage += content
-			
-			// Update the last assistant message or create new one
-			if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
-				m.messages[len(m.messages)-1].Content += content
-			} else {
-				m.addAssistantMessage(content)
-			}
-		}
-	}
-}
-
-// waitForStream waits for stream updates (SimpleModel version)
-func waitForStream(client *api.Client) tea.Cmd {
-	return func() tea.Msg {
-		// This would be connected to the actual stream handler
-		return nil
-	}
+		Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
+	
+	return tea.Printf("\n%s\n", msg)
 }

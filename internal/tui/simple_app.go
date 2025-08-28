@@ -198,32 +198,41 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case streamMsg:
-		// Handle streaming response - print directly to stdout
-		m.handleStreamMessage(msg)
-		return m, waitForStream(m.apiClient)
-
-	case streamCompleteMsg:
-		// Stream completed
+	case StreamOutput:
+		// Handle streaming output - print it using tea.Printf
 		m.loading = false
 		m.statusMsg = "Ready"
-		// Newlines are already added in processStream
+		
+		// Check if we have pending tool calls
+		if len(m.pendingToolCalls) > 0 {
+			m.checkToolApproval()
+			if m.waitingForApproval {
+				return m, tea.Printf(msg.Content)
+			}
+			// Auto-approve and execute
+			m.approvePendingTools()
+			return m, tea.Sequence(
+				tea.Printf(msg.Content),
+				m.executePendingTools(),
+			)
+		}
+		return m, tea.Printf(msg.Content)
 
 	case toolExecutionMsg:
 		// Handle tool execution result
 		m.handleToolResult(msg)
-		if !msg.hasMore {
-			// Check for tool approval
-			if len(m.pendingToolCalls) > 0 {
-				m.checkToolApproval()
-				if m.waitingForApproval {
-					return m, nil
-				}
-				return m, m.executePendingTools()
-			}
-		} else if msg.hasMore {
-			return m, m.continueConversation()
+		
+		// Print any output from tool execution
+		cmds := []tea.Cmd{}
+		if msg.output != "" {
+			cmds = append(cmds, tea.Printf(msg.output))
 		}
+		
+		if msg.hasMore {
+			cmds = append(cmds, m.continueConversation())
+		}
+		
+		return m, tea.Batch(cmds...)
 
 	case errorMsg:
 		m.err = msg.error
@@ -371,4 +380,52 @@ func (m *SimpleModel) addSystemMessage(content string) {
 
 func (m *SimpleModel) addToolMessage(toolCallID, content string) {
 	m.messages = append(m.messages, api.NewToolMessage(toolCallID, content))
+}
+
+// checkToolApproval checks if tools need approval
+func (m *SimpleModel) checkToolApproval() {
+	needsApproval := false
+	for _, tc := range m.pendingToolCalls {
+		if !m.isAutoApproved(tc.Function.Name) {
+			needsApproval = true
+			break
+		}
+	}
+
+	if needsApproval {
+		m.waitingForApproval = true
+		m.loading = false
+		m.statusMsg = "Tools require approval. Press TAB to approve."
+	} else {
+		m.approvePendingTools()
+	}
+}
+
+// isAutoApproved checks if a tool is auto-approved
+func (m *SimpleModel) isAutoApproved(toolName string) bool {
+	for _, approved := range m.config.Tools.AutoApprove {
+		if approved == toolName {
+			return true
+		}
+	}
+	return false
+}
+
+// approvePendingTools approves pending tool calls
+func (m *SimpleModel) approvePendingTools() {
+	m.waitingForApproval = false
+	m.loading = true
+	m.statusMsg = "Executing tools..."
+}
+
+// handleToolResult processes tool execution results
+func (m *SimpleModel) handleToolResult(msg toolExecutionMsg) {
+	if msg.hasMore {
+		m.statusMsg = "Processing tool results..."
+	}
+}
+
+// continueConversation continues after tool execution
+func (m *SimpleModel) continueConversation() tea.Cmd {
+	return m.sendContinuation()
 }
