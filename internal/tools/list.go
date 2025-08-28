@@ -132,12 +132,6 @@ func ListToolsJSON() (string, error) {
 			"required": []string{"path"},
 		},
 		{
-			"name":        "init",
-			"description": "Generate an AGENTS.md file for the project",
-			"parameters":  map[string]string{},
-			"required":    []string{},
-		},
-		{
 			"name":        "list_tools",
 			"description": "List all available tools and their descriptions",
 			"parameters":  map[string]string{},

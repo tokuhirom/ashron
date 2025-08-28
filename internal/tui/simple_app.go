@@ -308,6 +308,8 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 		return tea.Printf(b.String())
 	case "/compact":
 		m.compactContext()
+	case "/init":
+		return m.initProject()
 	case "/exit", "/quit":
 		return tea.Quit
 	case "/config":
@@ -328,6 +330,7 @@ func (m *SimpleModel) showHelp() tea.Cmd {
   /clear    - Clear screen
   /compact  - Compact conversation context
   /config   - Show current configuration
+  /init     - Generate AGENTS.md for the project
   /exit     - Exit application
 
 Keyboard Shortcuts:
@@ -428,4 +431,54 @@ func (m *SimpleModel) handleToolResult(msg toolExecutionMsg) {
 // continueConversation continues after tool execution
 func (m *SimpleModel) continueConversation() tea.Cmd {
 	return m.sendContinuation()
+}
+
+// initProject generates AGENTS.md for the project
+func (m *SimpleModel) initProject() tea.Cmd {
+	// Get current directory as root path
+	rootPath := "."
+	
+	// Generate AGENTS.md
+	content, err := tools.GenerateAgentsMD(rootPath)
+	if err != nil {
+		errMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Render(fmt.Sprintf("Error generating AGENTS.md: %v", err))
+		return tea.Printf("\n%s\n", errMsg)
+	}
+	
+	// Write the file
+	if err := os.WriteFile("AGENTS.md", []byte(content), 0644); err != nil {
+		errMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Render(fmt.Sprintf("Error writing AGENTS.md: %v", err))
+		return tea.Printf("\n%s\n", errMsg)
+	}
+	
+	// Show success message and content preview
+	output := "\n" + lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#04B575")).
+		Bold(true).
+		Render("✓ Successfully generated AGENTS.md") + "\n\n"
+	
+	// Show first few lines of the content as preview
+	lines := strings.Split(content, "\n")
+	preview := strings.Join(lines[:min(20, len(lines))], "\n")
+	if len(lines) > 20 {
+		preview += "\n..."
+	}
+	
+	output += lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(preview) + "\n"
+		
+	return tea.Printf(output)
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
