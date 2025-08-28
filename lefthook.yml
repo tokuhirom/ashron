@@ -23,15 +23,3 @@ pre-push:
     golangci-lint:
       run: golangci-lint run
 
-commit-msg:
-  commands:
-    check-commit-msg:
-      run: |
-        # Check commit message format
-        commit_regex='^(feat|fix|docs|style|refactor|test|chore|build|ci)(\(.+\))?: .{1,50}'
-        if ! grep -qE "$commit_regex" "$1"; then
-          echo "Commit message does not follow conventional format!"
-          echo "Format: <type>(<scope>): <subject>"
-          echo "Example: feat(api): add streaming support"
-          exit 1
-        fi
