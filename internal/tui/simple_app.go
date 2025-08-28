@@ -56,6 +56,8 @@ type SimpleModel struct {
 	// Operation context for better error messages
 	currentOperation string
 	lastUserInput    string
+
+	commandRegistry *CommandRegistry
 }
 
 // NewSimpleModel creates a new simplified application model
@@ -108,17 +110,20 @@ You have access to tools for file operations and command execution. Always ask f
 		Render("Type /help for available commands"))
 	fmt.Println()
 
+	commandRegistry := NewCommandRegistry()
+
 	return &SimpleModel{
-		config:     cfg,
-		apiClient:  apiClient,
-		textarea:   ta,
-		spinner:    sp,
-		session:    session,
-		messages:   session.Messages,
-		contextMgr: ctxMgr,
-		toolExec:   toolExec,
-		statusMsg:  "Ready",
-		ready:      true,
+		config:          cfg,
+		apiClient:       apiClient,
+		textarea:        ta,
+		spinner:         sp,
+		session:         session,
+		messages:        session.Messages,
+		contextMgr:      ctxMgr,
+		toolExec:        toolExec,
+		statusMsg:       "Ready",
+		ready:           true,
+		commandRegistry: commandRegistry,
 	}, nil
 }
 
@@ -173,7 +178,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				// Send chat message
-				return m, m.sendMessage(input)
+				return m, m.SendMessage(input)
 			}
 
 		case tea.KeyEnter:
@@ -188,7 +193,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					// Send a chat message
-					return m, m.sendMessage(input)
+					return m, m.SendMessage(input)
 				}
 			} else {
 				// Regular enter - let textarea handle it for newline
@@ -387,58 +392,19 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 	}
 
 	m.textarea.SetValue("")
-	switch parts[0] {
-	case "/help":
-		return m.showHelp()
-	case "/clear":
-		var b strings.Builder
-		b.WriteString("\033[2J\033[H") // Clear screen and move cursor to top
-		b.WriteString(lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#7D56F4")).
-			Bold(true).
-			Render("🤖 Ashron - AI Coding Assistant\n\n"))
-		m.statusMsg = "Screen cleared"
-		return tea.Printf(b.String())
-	case "/compact":
-		return m.compactContext()
-	case "/init":
-		return m.initProject()
-	case "/exit", "/quit":
-		return tea.Quit
-	case "/config":
-		return m.showConfig()
-	default:
+
+	cmd, ok := m.commandRegistry.GetCommand(input)
+	if !ok {
 		return tea.Println(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Unknown command: %s", parts[0])))
 	}
+
+	return cmd.Body(m.commandRegistry, m, parts[1:])
 }
 
-// showHelp displays available commands
-func (m *SimpleModel) showHelp() tea.Cmd {
-	help := `Available Commands:
-  /help     - Show this help message
-  /clear    - Clear screen
-  /compact  - Compact conversation context
-  /config   - Show current configuration
-  /init     - Generate AGENTS.md for the project
-  /exit     - Exit application
-
-Keyboard Shortcuts:
-  Ctrl+J     - Send message
-  Alt+Enter  - Send message (alternative)
-  Ctrl+C     - Cancel current operation or exit
-  Ctrl+L     - Clear screen
-  y/n        - Approve/Cancel tool execution (when prompted)
-  Enter      - New line in input`
-
-	return tea.Println(lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#626262")).
-		Render(help))
-}
-
-// showConfig displays current configuration
-func (m *SimpleModel) showConfig() tea.Cmd {
+// RenderConfig showConfig displays current configuration
+func (m *SimpleModel) RenderConfig() tea.Cmd {
 	configData := fmt.Sprintf(`Current Configuration:
   Provider: %s
   Model: %s
@@ -521,8 +487,8 @@ func (m *SimpleModel) continueConversation() tea.Cmd {
 	return m.sendContinuation()
 }
 
-// initProject generates AGENTS.md for the project
-func (m *SimpleModel) initProject() tea.Cmd {
+// InitProject generates AGENTS.md for the project
+func (m *SimpleModel) InitProject() tea.Cmd {
 	// Get current directory as root path
 	rootPath := "."
 
@@ -602,4 +568,11 @@ func (m *SimpleModel) sendCompletionNotification() {
 	if err := beeep.Notify(title, msg, ""); err != nil {
 		slog.Debug("Failed to send completion notification", "error", err)
 	}
+}
+
+func (m *SimpleModel) CompactContext() (int, int) {
+	originalCount := len(m.messages)
+	m.messages = m.contextMgr.Compact(m.messages)
+	newCount := len(m.messages)
+	return originalCount, newCount
 }

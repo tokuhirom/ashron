@@ -28,8 +28,8 @@ type StreamOutput struct {
 	Content string
 }
 
-// sendMessage sends a user message to the API (SimpleModel version)
-func (m *SimpleModel) sendMessage(input string) tea.Cmd {
+// SendMessage sends a user message to the API (SimpleModel version)
+func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	slog.Info("User sending message",
 		slog.Int("length", len(input)))
 
@@ -324,17 +324,4 @@ func (m *SimpleModel) sendContinuation() tea.Cmd {
 		// Process the stream
 		return m.processStreamNew(stream)
 	}
-}
-
-// compactContext compacts the conversation context
-func (m *SimpleModel) compactContext() tea.Cmd {
-	originalCount := len(m.messages)
-	m.messages = m.contextMgr.Compact(m.messages)
-	newCount := len(m.messages)
-
-	msg := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#626262")).
-		Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
-
-	return tea.Printf("\n%s\n", msg)
 }
