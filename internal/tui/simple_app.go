@@ -374,3 +374,4 @@ func (m *SimpleModel) addSystemMessage(content string) {
 func (m *SimpleModel) addToolMessage(toolCallID, content string) {
 	m.messages = append(m.messages, api.NewToolMessage(toolCallID, content))
 }
+

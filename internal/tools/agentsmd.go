@@ -3,6 +3,7 @@ package tools
 import (
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,6 +13,9 @@ import (
 
 // GenerateAgentsMD generates an AGENTS.md file for the project
 func GenerateAgentsMD(rootPath string) (string, error) {
+	slog.Info("Generating AGENTS.md file",
+		slog.String("rootPath", rootPath))
+
 	if rootPath == "" {
 		rootPath = "."
 	}
@@ -49,7 +53,7 @@ type fileInfo struct {
 
 func getProjectStructure(rootPath string) ([]fileInfo, error) {
 	var files []fileInfo
-	
+
 	// Common ignore patterns
 	ignorePatterns := []string{
 		".git", "node_modules", "vendor", ".vscode", ".idea",
@@ -82,10 +86,10 @@ func getProjectStructure(rootPath string) ([]fileInfo, error) {
 		}
 
 		// Skip hidden files/dirs (except .github, .gitignore, etc.)
-		if strings.HasPrefix(d.Name(), ".") && 
-		   !strings.HasPrefix(d.Name(), ".git") &&
-		   d.Name() != ".gitignore" &&
-		   d.Name() != ".env.example" {
+		if strings.HasPrefix(d.Name(), ".") &&
+			!strings.HasPrefix(d.Name(), ".git") &&
+			d.Name() != ".gitignore" &&
+			d.Name() != ".env.example" {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
@@ -246,7 +250,7 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 
 	// Development Guidelines
 	sb.WriteString("## Development Guidelines\n\n")
-	
+
 	if guidelines, exists := customSections["guidelines"]; exists {
 		sb.WriteString(guidelines)
 	} else {
@@ -267,7 +271,7 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 
 	// Agent Instructions
 	sb.WriteString("## AI Agent Instructions\n\n")
-	
+
 	if instructions, exists := customSections["instructions"]; exists {
 		sb.WriteString(instructions)
 	} else {
@@ -372,44 +376,44 @@ func identifyKeyComponents(files []fileInfo, projectType string) map[string][]ke
 			// Identify key directories
 			switch {
 			case strings.HasSuffix(f.Path, "/cmd"):
-				components["Entry Points"] = append(components["Entry Points"], 
+				components["Entry Points"] = append(components["Entry Points"],
 					keyComponent{f.Path, "Command-line applications"})
 			case strings.HasSuffix(f.Path, "/internal"):
-				components["Core Logic"] = append(components["Core Logic"], 
+				components["Core Logic"] = append(components["Core Logic"],
 					keyComponent{f.Path, "Internal packages"})
 			case strings.HasSuffix(f.Path, "/pkg"):
-				components["Public Libraries"] = append(components["Public Libraries"], 
+				components["Public Libraries"] = append(components["Public Libraries"],
 					keyComponent{f.Path, "Public packages"})
 			case strings.HasSuffix(f.Path, "/src"):
-				components["Source Code"] = append(components["Source Code"], 
+				components["Source Code"] = append(components["Source Code"],
 					keyComponent{f.Path, "Main source directory"})
 			case strings.HasSuffix(f.Path, "/test"), strings.HasSuffix(f.Path, "/tests"):
-				components["Testing"] = append(components["Testing"], 
+				components["Testing"] = append(components["Testing"],
 					keyComponent{f.Path, "Test files"})
 			case strings.HasSuffix(f.Path, "/docs"):
-				components["Documentation"] = append(components["Documentation"], 
+				components["Documentation"] = append(components["Documentation"],
 					keyComponent{f.Path, "Project documentation"})
 			}
 		} else {
 			// Identify key files
 			switch filepath.Base(f.Path) {
 			case "main.go", "main.py", "index.js", "index.ts", "main.rs":
-				components["Entry Points"] = append(components["Entry Points"], 
+				components["Entry Points"] = append(components["Entry Points"],
 					keyComponent{f.Path, "Main entry point"})
 			case "go.mod", "package.json", "Cargo.toml", "pyproject.toml":
-				components["Configuration"] = append(components["Configuration"], 
+				components["Configuration"] = append(components["Configuration"],
 					keyComponent{f.Path, "Project configuration"})
 			case "Makefile":
-				components["Build"] = append(components["Build"], 
+				components["Build"] = append(components["Build"],
 					keyComponent{f.Path, "Build configuration"})
 			case "Dockerfile":
-				components["Deployment"] = append(components["Deployment"], 
+				components["Deployment"] = append(components["Deployment"],
 					keyComponent{f.Path, "Container configuration"})
 			case "README.md":
-				components["Documentation"] = append(components["Documentation"], 
+				components["Documentation"] = append(components["Documentation"],
 					keyComponent{f.Path, "Project documentation"})
 			case ".github/workflows/ci.yml", ".gitlab-ci.yml":
-				components["CI/CD"] = append(components["CI/CD"], 
+				components["CI/CD"] = append(components["CI/CD"],
 					keyComponent{f.Path, "Continuous integration"})
 			}
 		}
@@ -420,7 +424,7 @@ func identifyKeyComponents(files []fileInfo, projectType string) map[string][]ke
 
 func detectTechnologies(files []fileInfo) []string {
 	techs := make(map[string]bool)
-	
+
 	for _, f := range files {
 		switch {
 		case strings.HasSuffix(f.Path, "docker-compose.yml"):
@@ -452,24 +456,24 @@ func detectTechnologies(files []fileInfo) []string {
 
 func generateTreeStructure(files []fileInfo) string {
 	var sb strings.Builder
-	
+
 	// Build tree structure
 	type node struct {
 		name     string
 		children map[string]*node
 		isFile   bool
 	}
-	
+
 	root := &node{children: make(map[string]*node)}
-	
+
 	for _, f := range files {
 		if f.Path == "." {
 			continue
 		}
-		
+
 		parts := strings.Split(f.Path, string(filepath.Separator))
 		current := root
-		
+
 		for i, part := range parts {
 			if current.children[part] == nil {
 				current.children[part] = &node{
@@ -481,7 +485,7 @@ func generateTreeStructure(files []fileInfo) string {
 			current = current.children[part]
 		}
 	}
-	
+
 	// Print tree
 	var printNode func(n *node, prefix string, isLast bool)
 	printNode = func(n *node, prefix string, isLast bool) {
@@ -496,7 +500,7 @@ func generateTreeStructure(files []fileInfo) string {
 			}
 			sb.WriteString("\n")
 		}
-		
+
 		// Skip deep nesting
 		if strings.Count(prefix, "│") > 3 {
 			if len(n.children) > 0 {
@@ -510,13 +514,13 @@ func generateTreeStructure(files []fileInfo) string {
 			}
 			return
 		}
-		
+
 		keys := make([]string, 0, len(n.children))
 		for k := range n.children {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		
+
 		for i, k := range keys {
 			child := n.children[k]
 			newPrefix := prefix
@@ -530,31 +534,31 @@ func generateTreeStructure(files []fileInfo) string {
 			printNode(child, newPrefix, i == len(keys)-1)
 		}
 	}
-	
+
 	printNode(root, "", false)
-	
+
 	return sb.String()
 }
 
 func parseCustomSections(content string) map[string]string {
 	sections := make(map[string]string)
-	
+
 	if content == "" {
 		return sections
 	}
-	
+
 	// Look for custom sections marked with special comments
 	// <!-- CUSTOM:description -->...<!-- /CUSTOM:description -->
-	
+
 	customPattern := `<!-- CUSTOM:(\w+) -->(.*?)<!-- /CUSTOM:\w+ -->`
 	re := regexp.MustCompile(customPattern)
-	
+
 	matches := re.FindAllStringSubmatch(content, -1)
 	for _, match := range matches {
 		if len(match) >= 3 {
 			sections[match[1]] = strings.TrimSpace(match[2])
 		}
 	}
-	
+
 	return sections
 }
