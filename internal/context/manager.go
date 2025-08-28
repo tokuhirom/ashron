@@ -2,6 +2,7 @@ package context
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/tokuhirom/ashron/internal/api"
@@ -125,9 +126,9 @@ func (m *Manager) summarizeMessages(messages []api.Message) *api.Message {
 	summary.WriteString("Summary statistics:\n")
 	summary.WriteString("- ")
 	summary.WriteString(strings.Join([]string{
-		intToString(userMsgCount) + " user messages",
-		intToString(assistantMsgCount) + " assistant responses",
-		intToString(toolCallCount) + " tool calls executed",
+		fmt.Sprintf("%d", userMsgCount) + " user messages",
+		fmt.Sprintf("%d", assistantMsgCount) + " assistant responses",
+		fmt.Sprintf("%d", toolCallCount) + " tool calls executed",
 	}, ", "))
 
 	return &api.Message{
@@ -192,29 +193,4 @@ func (m *Manager) GetMessageLimit() int {
 // ShouldAutoCompact returns whether auto-compaction is enabled
 func (m *Manager) ShouldAutoCompact() bool {
 	return m.config.AutoCompact
-}
-
-// Helper function to convert int to string
-func intToString(n int) string {
-	if n == 0 {
-		return "0"
-	}
-
-	result := ""
-	negative := n < 0
-	if negative {
-		n = -n
-	}
-
-	for n > 0 {
-		digit := n % 10
-		result = string(rune('0'+digit)) + result
-		n /= 10
-	}
-
-	if negative {
-		result = "-" + result
-	}
-
-	return result
 }
