@@ -278,7 +278,20 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 				Padding(0, 1).
 				Render("Tool Result:"))
 			output.WriteString("\n")
-			output.WriteString(result.Output)
+
+			// Truncate long output for display
+			lines := strings.Split(result.Output, "\n")
+			if len(lines) > 5 {
+				displayOutput := strings.Join(lines[:5], "\n")
+				output.WriteString(displayOutput)
+				output.WriteString("\n")
+				output.WriteString(lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#626262")).
+					Italic(true).
+					Render(fmt.Sprintf("[... %d more lines truncated for display]", len(lines)-5)))
+			} else {
+				output.WriteString(result.Output)
+			}
 			output.WriteString("\n\n")
 
 			// Add tool result message
