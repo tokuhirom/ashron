@@ -57,6 +57,5 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - name: Build
-        run: |
-          go build -v ./...
-          go build -v -o ashron ./cmd/ashron
+        run: make
+
