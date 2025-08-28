@@ -2,6 +2,7 @@ package tools
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -604,10 +605,9 @@ func (e *Executor) gitLsFiles(toolCallID string, args map[string]interface{}) ap
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			// git ls-files returns exit code 128 for non-git directories
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 128 {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) && exitErr.ExitCode() == 128 {
 				errChan <- fmt.Errorf("not in a git repository")
-			} else {
-				errChan <- err
 			}
 		} else {
 			output <- out
