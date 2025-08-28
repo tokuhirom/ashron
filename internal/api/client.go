@@ -102,7 +102,8 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRe
 	slog.Debug("Sending streaming API request", "url", httpReq.URL.String())
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		slog.Error("Failed to send streaming request", "error", err)
+		slog.Error("Failed to send streaming request",
+			slog.Any("error", err))
 		return nil, fmt.Errorf("send request: %w", err)
 	}
 
@@ -214,20 +215,6 @@ func (c *Client) handleError(resp *http.Response) error {
 
 	return fmt.Errorf("API error: %s (type: %s, code: %s)",
 		errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
-}
-
-// CreateChatCompletionWithTools sends a request with tool support
-func (c *Client) CreateChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (*ChatCompletionResponse, error) {
-	req := &ChatCompletionRequest{
-		Model:       c.config.Model,
-		Messages:    messages,
-		Temperature: c.config.Temperature,
-		MaxTokens:   c.config.MaxTokens,
-		Tools:       tools,
-		Stream:      false,
-	}
-
-	return c.CreateChatCompletion(ctx, req)
 }
 
 // StreamChatCompletionWithTools sends a streaming request with tool support
