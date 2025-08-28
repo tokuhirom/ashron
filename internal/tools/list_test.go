@@ -20,6 +20,7 @@ func TestListTools(t *testing.T) {
 		"list_directory",
 		"list_tools",
 		"git_grep",
+		"git_ls_files",
 	}
 
 	for _, tool := range expectedTools {
@@ -54,6 +55,7 @@ func TestListToolsJSON(t *testing.T) {
 		`"list_directory"`,
 		`"list_tools"`,
 		`"git_grep"`,
+		`"git_ls_files"`,
 	}
 
 	for _, tool := range expectedTools {

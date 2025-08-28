@@ -230,6 +230,63 @@ var BuiltinTools = []Tool{
 			}`),
 		},
 	},
+	{
+		Type: "function",
+		Function: FunctionDef{
+			Name:        "git_ls_files",
+			Description: "List files in git repository",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"cached": {
+						"type": "boolean",
+						"description": "Show cached files"
+					},
+					"deleted": {
+						"type": "boolean",
+						"description": "Show deleted files"
+					},
+					"modified": {
+						"type": "boolean",
+						"description": "Show modified files"
+					},
+					"others": {
+						"type": "boolean",
+						"description": "Show other (untracked) files"
+					},
+					"ignored": {
+						"type": "boolean",
+						"description": "Show ignored files"
+					},
+					"stage": {
+						"type": "boolean",
+						"description": "Show staged contents' object name"
+					},
+					"unmerged": {
+						"type": "boolean",
+						"description": "Show unmerged files"
+					},
+					"killed": {
+						"type": "boolean",
+						"description": "Show files that git checkout would overwrite"
+					},
+					"exclude_standard": {
+						"type": "boolean",
+						"description": "Use standard git exclusions"
+					},
+					"full_name": {
+						"type": "boolean",
+						"description": "Show full path from repository root"
+					},
+					"path": {
+						"type": "string",
+						"description": "Limit to specific path or file pattern"
+					}
+				},
+				"required": []
+			}`),
+		},
+	},
 }
 
 // Helper function to create a user message

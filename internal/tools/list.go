@@ -68,6 +68,24 @@ var AllTools = []ToolInfo{
 		},
 		Required: []string{"pattern"},
 	},
+	{
+		Name:        "git_ls_files",
+		Description: "List files in git repository",
+		Parameters: map[string]string{
+			"cached":           "Show cached files",
+			"deleted":          "Show deleted files",
+			"modified":         "Show modified files",
+			"others":           "Show other (untracked) files",
+			"ignored":          "Show ignored files",
+			"stage":            "Show staged contents' object name",
+			"unmerged":         "Show unmerged files",
+			"killed":           "Show files that git checkout would overwrite",
+			"exclude_standard": "Use standard git exclusions",
+			"full_name":        "Show full path from repository root",
+			"path":             "Limit to specific path or file pattern",
+		},
+		Required: []string{},
+	},
 }
 
 // FormatAsText formats the tools list as human-readable text
