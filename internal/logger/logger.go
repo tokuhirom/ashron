@@ -38,18 +38,8 @@ func Setup(logFilePath string) error {
 
 		// Create JSON handler for file logging
 		handler = slog.NewJSONHandler(file, opts)
-
-		// Log to both file and stderr in development
-		if os.Getenv("DEBUG") != "" {
-			// Create multi-writer for both file and stderr
-			mw := io.MultiWriter(file, os.Stderr)
-			handler = slog.NewTextHandler(mw, opts)
-		}
-	} else if os.Getenv("DEBUG") != "" {
-		// Log to stderr in debug mode
-		handler = slog.NewTextHandler(os.Stderr, opts)
 	} else {
-		// Discard logs if no log file and not in debug mode
+		// Discard logs if no log file
 		handler = slog.NewTextHandler(io.Discard, opts)
 	}
 
