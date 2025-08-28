@@ -13,6 +13,22 @@ import (
 	"github.com/tokuhirom/ashron/internal/api"
 )
 
+// Message types for tea.Cmd (duplicated from commands.go for SimpleModel)
+type streamMsg struct {
+	chunk *api.StreamResponse
+}
+
+type streamCompleteMsg struct{}
+
+type toolExecutionMsg struct {
+	results []api.ToolResult
+	hasMore bool
+}
+
+type errorMsg struct {
+	error error
+}
+
 // sendMessage sends a user message to the API (SimpleModel version)
 func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 	slog.Info("User sending message", "length", len(input))
@@ -336,5 +352,13 @@ func (m *SimpleModel) handleStreamMessage(msg streamMsg) {
 				m.addAssistantMessage(content)
 			}
 		}
+	}
+}
+
+// waitForStream waits for stream updates (SimpleModel version)
+func waitForStream(client *api.Client) tea.Cmd {
+	return func() tea.Msg {
+		// This would be connected to the actual stream handler
+		return nil
 	}
 }
