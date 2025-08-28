@@ -390,23 +390,23 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 
 	// Build git grep command
 	cmdArgs := []string{"grep"}
-	
+
 	// Add optional flags
 	if caseInsensitive, ok := args["case_insensitive"].(bool); ok && caseInsensitive {
 		cmdArgs = append(cmdArgs, "-i")
 	}
-	
+
 	if lineNumber, ok := args["line_number"].(bool); ok && lineNumber {
 		cmdArgs = append(cmdArgs, "-n")
 	}
-	
+
 	if count, ok := args["count"].(bool); ok && count {
 		cmdArgs = append(cmdArgs, "-c")
 	}
-	
+
 	// Add the pattern
 	cmdArgs = append(cmdArgs, pattern)
-	
+
 	// Add optional path
 	if path, ok := args["path"].(string); ok && path != "" {
 		cmdArgs = append(cmdArgs, "--", path)
@@ -416,9 +416,9 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 	slog.Info("executing git grep",
 		slog.String("pattern", pattern),
 		slog.Any("args", cmdArgs))
-	
+
 	cmd := exec.Command("git", cmdArgs...)
-	
+
 	// Set timeout
 	timeout := time.Duration(e.config.CommandTimeout) * time.Second
 	timer := time.NewTimer(timeout)

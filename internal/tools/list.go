@@ -71,12 +71,12 @@ func ListTools() (string, error) {
 			Description: "Search for a pattern in git repository files",
 			Parameters: map[string]string{
 				"pattern":          "The pattern to search for",
-				"path":            "Limit search to specific path or file pattern",
+				"path":             "Limit search to specific path or file pattern",
 				"case_insensitive": "Perform case-insensitive search",
-				"line_number":     "Show line numbers in output",
-				"count":           "Show only count of matching lines",
+				"line_number":      "Show line numbers in output",
+				"count":            "Show only count of matching lines",
 			},
-			Required:    []string{"pattern"},
+			Required: []string{"pattern"},
 		},
 	}
 
@@ -154,12 +154,12 @@ func ListToolsJSON() (string, error) {
 			"description": "Search for a pattern in git repository files",
 			"parameters": map[string]string{
 				"pattern":          "The pattern to search for",
-				"path":            "Limit search to specific path or file pattern",
+				"path":             "Limit search to specific path or file pattern",
 				"case_insensitive": "Perform case-insensitive search",
-				"line_number":     "Show line numbers in output",
-				"count":           "Show only count of matching lines",
+				"line_number":      "Show line numbers in output",
+				"count":            "Show only count of matching lines",
 			},
-			"required":    []string{"pattern"},
+			"required": []string{"pattern"},
 		},
 	}
 
