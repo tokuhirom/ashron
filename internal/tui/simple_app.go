@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gen2brain/beeep"
 
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
@@ -216,6 +218,9 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.executePendingTools(),
 			)
 		}
+		
+		// Agent finished processing - send notification
+		m.sendCompletionNotification()
 		return m, tea.Printf(msg.Content)
 
 	case toolExecutionMsg:
@@ -230,6 +235,9 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		if msg.hasMore {
 			cmds = append(cmds, m.continueConversation())
+		} else {
+			// All processing done - send notification
+			m.sendCompletionNotification()
 		}
 		
 		return m, tea.Batch(cmds...)
@@ -481,4 +489,37 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// sendCompletionNotification sends a notification when the agent finishes processing
+func (m *SimpleModel) sendCompletionNotification() {
+	// Get the last assistant message for context
+	var lastMessage string
+	for i := len(m.messages) - 1; i >= 0; i-- {
+		if m.messages[i].Role == "assistant" && m.messages[i].Content != "" {
+			lastMessage = m.messages[i].Content
+			break
+		}
+	}
+	
+	// Create notification
+	title := "Ashron Ready"
+	msg := "Your assistant has finished processing"
+	
+	// Add a preview of the response if available
+	if lastMessage != "" {
+		// Truncate the message for notification
+		preview := lastMessage
+		if len(preview) > 100 {
+			preview = preview[:97] + "..."
+		}
+		// Remove newlines for cleaner notification
+		preview = strings.ReplaceAll(preview, "\n", " ")
+		msg = preview
+	}
+	
+	// Send the notification
+	if err := beeep.Notify(title, msg, ""); err != nil {
+		slog.Debug("Failed to send completion notification", "error", err)
+	}
 }

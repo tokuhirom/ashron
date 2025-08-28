@@ -241,6 +241,8 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 			slog.String("command", command),
 			slog.String("output", result.Output))
 		fmt.Fprintf(os.Stderr, "Command output:\n%s\n", result.Output)
+		
+		// Don't send individual command notifications - the main completion notification handles it
 
 	case err := <-errChan:
 		result.Error = err
@@ -251,6 +253,8 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 			slog.String("command", command),
 			slog.String("error", err.Error()))
 		fmt.Fprintf(os.Stderr, "Command failed: %v\n", err)
+		
+		// Don't send individual command notifications - the main completion notification handles it
 
 	case <-timer.C:
 		// Kill the process on timeout
@@ -265,6 +269,8 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 			slog.String("command", command),
 			slog.Duration("timeout", timeout))
 		fmt.Fprintf(os.Stderr, "Command timed out after %v\n", timeout)
+		
+		// Don't send individual command notifications - the main completion notification handles it
 	}
 
 	return result
