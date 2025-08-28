@@ -4,12 +4,14 @@
 pre-commit:
   parallel: false
   commands:
+    make-fmt:
+      glob: "*.go"
+      run: make fmt
+      stage_fixed: true
     golangci-lint:
       glob: "*.go"
       run: golangci-lint run --fix {staged_files}
-    gofmt:
-      glob: "*.go"
-      run: gofmt -w {staged_files} && git add {staged_files}
+      skip: true  # Skip by default, enable if golangci-lint is installed
 
 pre-push:
   parallel: true
