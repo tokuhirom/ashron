@@ -148,13 +148,14 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyCtrlL:
 			// Clear chat (just clear screen in streaming mode)
-			fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top
-			fmt.Println(lipgloss.NewStyle().
+			var b strings.Builder
+			b.WriteString("\033[2J\033[H") // Clear screen and move cursor to top
+			b.WriteString(lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#7D56F4")).
 				Bold(true).
-				Render("🤖 Ashron - AI Coding Assistant"))
-			fmt.Println()
+				Render("🤖 Ashron - AI Coding Assistant") + "\n\n")
 			m.statusMsg = "Screen cleared"
+			return m, tea.Printf(b.String())
 
 		case tea.KeyCtrlJ:
 			// Send message
@@ -287,35 +288,36 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 		return nil
 	}
 
+	m.textarea.SetValue("")
 	switch parts[0] {
 	case "/help":
-		m.showHelp()
+		return m.showHelp()
 	case "/clear":
-		fmt.Print("\033[2J\033[H") // Clear screen
-		fmt.Println(lipgloss.NewStyle().
+		var b strings.Builder
+		b.WriteString("\033[2J\033[H") // Clear screen and move cursor to top
+		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#7D56F4")).
 			Bold(true).
-			Render("🤖 Ashron - AI Coding Assistant"))
-		fmt.Println()
+			Render("🤖 Ashron - AI Coding Assistant\n\n"))
 		m.statusMsg = "Screen cleared"
+		return tea.Printf(b.String())
 	case "/compact":
 		m.compactContext()
 	case "/exit", "/quit":
 		return tea.Quit
 	case "/config":
-		m.showConfig()
+		return m.showConfig()
 	default:
-		fmt.Fprintln(os.Stderr, lipgloss.NewStyle().
+		return tea.Println(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Unknown command: %s", parts[0])))
 	}
 
-	m.textarea.SetValue("")
 	return nil
 }
 
 // showHelp displays available commands
-func (m *SimpleModel) showHelp() {
+func (m *SimpleModel) showHelp() tea.Cmd {
 	help := `Available Commands:
   /help     - Show this help message
   /clear    - Clear screen
@@ -331,14 +333,14 @@ Keyboard Shortcuts:
   Tab        - Approve pending tool calls
   Enter      - New line in input`
 
-	fmt.Println(lipgloss.NewStyle().
+	return tea.Println(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render(help))
 }
 
 // showConfig displays current configuration
-func (m *SimpleModel) showConfig() {
-	config := fmt.Sprintf(`Current Configuration:
+func (m *SimpleModel) showConfig() tea.Cmd {
+	configData := fmt.Sprintf(`Current Configuration:
   Provider: %s
   Model: %s
   Max Tokens: %d
@@ -353,9 +355,9 @@ func (m *SimpleModel) showConfig() {
 		m.config.Context.MaxTokens,
 	)
 
-	fmt.Println(lipgloss.NewStyle().
+	return tea.Println("\n\n" + lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
-		Render(config))
+		Render(configData))
 }
 
 // Helper functions for managing messages
@@ -374,4 +376,3 @@ func (m *SimpleModel) addSystemMessage(content string) {
 func (m *SimpleModel) addToolMessage(toolCallID, content string) {
 	m.messages = append(m.messages, api.NewToolMessage(toolCallID, content))
 }
-
