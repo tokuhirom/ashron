@@ -12,13 +12,6 @@ import (
 	"github.com/tokuhirom/ashron/internal/api"
 )
 
-// Message types for tea.Cmd
-type streamMsg struct {
-	chunk *api.StreamResponse
-}
-
-type streamCompleteMsg struct{}
-
 type toolExecutionMsg struct {
 	results []api.ToolResult
 	hasMore bool
@@ -37,13 +30,13 @@ type StreamOutput struct {
 // sendMessage sends a user message to the API (SimpleModel version)
 func (m *SimpleModel) sendMessage(input string) tea.Cmd {
 	slog.Info("User sending message", "length", len(input))
-	
+
 	// Store the message for display
 	userMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
 		Render("You: ") + input
-	
+
 	m.addUserMessage(input)
 	m.textarea.SetValue("")
 	m.loading = true
@@ -90,13 +83,13 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 // processStreamNew processes streaming responses with proper output collection
 func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 	var fullContent strings.Builder
-	var output strings.Builder  // Collects all output to print
+	var output strings.Builder // Collects all output to print
 	var toolCalls []api.ToolCall
 	var chunkCount int
 	// Map to accumulate tool call arguments by index
 	toolCallArgs := make(map[int]*strings.Builder)
 	toolCallsByIndex := make(map[int]*api.ToolCall)
-	
+
 	// Add assistant label
 	output.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FAFAFA")).
@@ -188,7 +181,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 				if fullContent.Len() > 0 {
 					output.WriteString("\n\n")
 				}
-				
+
 				// Finalize tool calls with complete arguments
 				for idx, tc := range toolCallsByIndex {
 					if toolCallArgs[idx] != nil && toolCallArgs[idx].Len() > 0 {
@@ -199,7 +192,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 						tc.Function.Arguments = "{}"
 					}
 					toolCalls = append(toolCalls, *tc)
-					
+
 					// Add tool call info to output
 					output.WriteString(lipgloss.NewStyle().
 						Background(lipgloss.Color("#2a2a2a")).
@@ -207,7 +200,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 						Padding(0, 1).
 						Render(fmt.Sprintf("🔧 Calling %s", tc.Function.Name)))
 					output.WriteString("\n")
-					
+
 					slog.Debug("Finalized tool call",
 						"id", tc.ID,
 						"name", tc.Function.Name,
@@ -263,7 +256,7 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 			output.WriteString("\n")
 			output.WriteString(result.Output)
 			output.WriteString("\n\n")
-			
+
 			// Add tool result message
 			m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))
 		}
@@ -274,7 +267,7 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 		return toolExecutionMsg{
 			results: results,
 			hasMore: true,
-			output: output.String(),
+			output:  output.String(),
 		}
 	}
 }
@@ -304,6 +297,6 @@ func (m *SimpleModel) compactContext() tea.Cmd {
 	msg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
-	
+
 	return tea.Printf("\n%s\n", msg)
 }
