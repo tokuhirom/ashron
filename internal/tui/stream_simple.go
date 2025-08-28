@@ -30,7 +30,8 @@ type StreamOutput struct {
 
 // sendMessage sends a user message to the API (SimpleModel version)
 func (m *SimpleModel) sendMessage(input string) tea.Cmd {
-	slog.Info("User sending message", "length", len(input))
+	slog.Info("User sending message",
+		slog.Int("length", len(input)))
 
 	// Store the message for display
 	userMsg := lipgloss.NewStyle().
@@ -309,7 +310,7 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 	}
 }
 
-// sendContinuation sends a continuation request (SimpleModel version)
+// sendContinuation sends a continuation request
 func (m *SimpleModel) sendContinuation() tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
@@ -325,7 +326,7 @@ func (m *SimpleModel) sendContinuation() tea.Cmd {
 	}
 }
 
-// compactContext compacts the conversation context (SimpleModel version)
+// compactContext compacts the conversation context
 func (m *SimpleModel) compactContext() tea.Cmd {
 	originalCount := len(m.messages)
 	m.messages = m.contextMgr.Compact(m.messages)

@@ -63,7 +63,7 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 	// Create API client
 	apiClient := api.NewClient(&cfg.API)
 
-	// Create context manager
+	// Create a context manager
 	ctxMgr := contextmgr.NewManager(&cfg.Context)
 
 	// Create tool executor
@@ -98,7 +98,7 @@ You have access to tools for file operations and command execution. Always ask f
 
 	session.Messages = append(session.Messages, api.NewSystemMessage(systemPrompt))
 
-	// Print welcome message
+	// Print a welcome message
 	fmt.Println(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#7D56F4")).
 		Bold(true).
@@ -179,7 +179,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			// Check if Alt is pressed for sending (Alt+Enter)
 			if msg.Alt {
-				// Send message
+				// Send a message
 				input := m.textarea.Value()
 				if strings.TrimSpace(input) != "" {
 					// Check for commands
@@ -187,7 +187,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, m.handleCommand(input)
 					}
 
-					// Send chat message
+					// Send a chat message
 					return m, m.sendMessage(input)
 				}
 			} else {
