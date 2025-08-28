@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -17,12 +18,12 @@ type Config struct {
 }
 
 type APIConfig struct {
-	BaseURL     string  `mapstructure:"base_url"`
-	APIKey      string  `mapstructure:"api_key"`
-	Model       string  `mapstructure:"model"`
-	MaxTokens   int     `mapstructure:"max_tokens"`
-	Temperature float32 `mapstructure:"temperature"`
-	Timeout     int     `mapstructure:"timeout"` // Seconds
+	BaseURL     string        `mapstructure:"base_url"`
+	APIKey      string        `mapstructure:"api_key"`
+	Model       string        `mapstructure:"model"`
+	MaxTokens   int           `mapstructure:"max_tokens"`
+	Temperature float32       `mapstructure:"temperature"`
+	Timeout     time.Duration `mapstructure:"timeout"`
 }
 
 type UIConfig struct {

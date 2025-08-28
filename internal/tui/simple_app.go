@@ -462,12 +462,14 @@ func (m *SimpleModel) showConfig() tea.Cmd {
   Model: %s
   Max Tokens: %d
   Temperature: %.2f
+  API Timeout: %v
   Auto-Compact: %v
   Context Limit: %d tokens`,
 		m.config.Provider,
 		m.config.API.Model,
 		m.config.API.MaxTokens,
 		m.config.API.Temperature,
+		m.config.API.Timeout,
 		m.config.Context.AutoCompact,
 		m.config.Context.MaxTokens,
 	)
