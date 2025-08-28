@@ -183,18 +183,6 @@ var BuiltinTools = []Tool{
 	{
 		Type: "function",
 		Function: FunctionDef{
-			Name:        "init",
-			Description: "Generate an AGENTS.md file for the project",
-			Parameters: json.RawMessage(`{
-				"type": "object",
-				"properties": {},
-				"required": []
-			}`),
-		},
-	},
-	{
-		Type: "function",
-		Function: FunctionDef{
 			Name:        "list_tools",
 			Description: "List all available tools and their descriptions",
 			Parameters: json.RawMessage(`{
@@ -206,6 +194,39 @@ var BuiltinTools = []Tool{
 					}
 				},
 				"required": []
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: FunctionDef{
+			Name:        "git_grep",
+			Description: "Search for a pattern in git repository files",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"pattern": {
+						"type": "string",
+						"description": "The pattern to search for"
+					},
+					"path": {
+						"type": "string",
+						"description": "Limit search to specific path or file pattern"
+					},
+					"case_insensitive": {
+						"type": "boolean",
+						"description": "Perform case-insensitive search"
+					},
+					"line_number": {
+						"type": "boolean",
+						"description": "Show line numbers in output"
+					},
+					"count": {
+						"type": "boolean",
+						"description": "Show only count of matching lines"
+					}
+				},
+				"required": ["pattern"]
 			}`),
 		},
 	},

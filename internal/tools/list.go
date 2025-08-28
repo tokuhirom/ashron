@@ -66,6 +66,18 @@ func ListTools() (string, error) {
 			Parameters:  map[string]string{},
 			Required:    []string{},
 		},
+		{
+			Name:        "git_grep",
+			Description: "Search for a pattern in git repository files",
+			Parameters: map[string]string{
+				"pattern":          "The pattern to search for",
+				"path":            "Limit search to specific path or file pattern",
+				"case_insensitive": "Perform case-insensitive search",
+				"line_number":     "Show line numbers in output",
+				"count":           "Show only count of matching lines",
+			},
+			Required:    []string{"pattern"},
+		},
 	}
 
 	// Format each tool
@@ -136,6 +148,18 @@ func ListToolsJSON() (string, error) {
 			"description": "List all available tools and their descriptions",
 			"parameters":  map[string]string{},
 			"required":    []string{},
+		},
+		{
+			"name":        "git_grep",
+			"description": "Search for a pattern in git repository files",
+			"parameters": map[string]string{
+				"pattern":          "The pattern to search for",
+				"path":            "Limit search to specific path or file pattern",
+				"case_insensitive": "Perform case-insensitive search",
+				"line_number":     "Show line numbers in output",
+				"count":           "Show only count of matching lines",
+			},
+			"required":    []string{"pattern"},
 		},
 	}
 

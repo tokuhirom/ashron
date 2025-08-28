@@ -60,6 +60,8 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		result = e.listDirectory(toolCall.ID, args)
 	case "list_tools":
 		result = e.listTools(toolCall.ID, args)
+	case "git_grep":
+		result = e.gitGrep(toolCall.ID, args)
 	default:
 		slog.Error("Unknown tool requested", "tool", toolCall.Function.Name)
 		result.Error = fmt.Errorf("unknown tool: %s", toolCall.Function.Name)
@@ -362,6 +364,110 @@ func (e *Executor) listTools(toolCallID string, args map[string]interface{}) api
 	}
 
 	result.Output = output
+	return result
+}
+
+// gitGrep executes git grep command
+func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.ToolResult {
+	result := api.ToolResult{
+		ToolCallID: toolCallID,
+	}
+
+	// Check if command execution is enabled
+	if !e.config.EnableCommandExec {
+		result.Error = fmt.Errorf("command execution is disabled")
+		result.Output = "Error: Command execution is disabled in configuration"
+		return result
+	}
+
+	// Get the pattern (required)
+	pattern, ok := args["pattern"].(string)
+	if !ok || pattern == "" {
+		result.Error = fmt.Errorf("missing or invalid 'pattern' argument")
+		result.Output = "Error: Missing or invalid 'pattern' argument"
+		return result
+	}
+
+	// Build git grep command
+	cmdArgs := []string{"grep"}
+	
+	// Add optional flags
+	if caseInsensitive, ok := args["case_insensitive"].(bool); ok && caseInsensitive {
+		cmdArgs = append(cmdArgs, "-i")
+	}
+	
+	if lineNumber, ok := args["line_number"].(bool); ok && lineNumber {
+		cmdArgs = append(cmdArgs, "-n")
+	}
+	
+	if count, ok := args["count"].(bool); ok && count {
+		cmdArgs = append(cmdArgs, "-c")
+	}
+	
+	// Add the pattern
+	cmdArgs = append(cmdArgs, pattern)
+	
+	// Add optional path
+	if path, ok := args["path"].(string); ok && path != "" {
+		cmdArgs = append(cmdArgs, "--", path)
+	}
+
+	// Execute git grep
+	slog.Info("executing git grep",
+		slog.String("pattern", pattern),
+		slog.Any("args", cmdArgs))
+	
+	cmd := exec.Command("git", cmdArgs...)
+	
+	// Set timeout
+	timeout := time.Duration(e.config.CommandTimeout) * time.Second
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	// Run command
+	output := make(chan []byte, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			// git grep returns exit code 1 when no matches found - this is not an error
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				output <- []byte("No matches found")
+			} else {
+				errChan <- err
+			}
+		} else {
+			output <- out
+		}
+	}()
+
+	// Wait for completion or timeout
+	select {
+	case out := <-output:
+		// Limit output size
+		if len(out) > e.config.MaxOutputSize {
+			out = out[:e.config.MaxOutputSize]
+			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
+		}
+		result.Output = string(out)
+		slog.Info("git grep completed", "outputLength", len(out))
+
+	case err := <-errChan:
+		result.Error = err
+		result.Output = fmt.Sprintf("Git grep failed: %v", err)
+		slog.Error("git grep failed", "error", err)
+
+	case <-timer.C:
+		// Kill the process on timeout
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		result.Error = fmt.Errorf("git grep timed out after %v", timeout)
+		result.Output = fmt.Sprintf("Error: Git grep timed out after %v", timeout)
+		slog.Error("git grep timed out", "timeout", timeout)
+	}
+
 	return result
 }
 
