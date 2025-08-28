@@ -21,7 +21,6 @@ var (
 
 func main() {
 	var (
-		configFile  = flag.String("config", "", "Path to configuration file")
 		showVersion = flag.Bool("version", false, "Show version information")
 		apiKey      = flag.String("api-key", "", "OpenAI API key (overrides config)")
 		model       = flag.String("model", "", "Model to use (overrides config)")
@@ -51,7 +50,7 @@ func main() {
 	slog.Info("Starting Ashron", "version", version, "commit", commit)
 
 	// Load configuration
-	cfg, err := loadConfig(*configFile)
+	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
@@ -88,7 +87,7 @@ func main() {
 	}
 }
 
-func loadConfig(configFile string) (*config.Config, error) {
+func loadConfig() (*config.Config, error) {
 	return config.Load()
 }
 
@@ -99,8 +98,6 @@ Usage:
   ashron [options]
 
 Options:
-  -config string
-        Path to configuration file
   -api-key string
         OpenAI API key (overrides config)
   -model string
@@ -116,7 +113,6 @@ Options:
 
 Environment Variables:
   OPENAI_API_KEY        OpenAI API key
-  ASHRON_CONFIG_FILE    Path to configuration file
   ASHRON_API_BASE_URL   API base URL
   ASHRON_API_MODEL      Model to use
 
