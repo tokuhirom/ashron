@@ -183,5 +183,10 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 		Stream:      true,
 	}
 
+	slog.Info("Sending streaming request",
+		slog.String("model", req.Model),
+		slog.Int("messages", len(req.Messages)),
+		slog.Int("tools", len(req.Tools)))
+
 	return c.StreamChatCompletion(ctx, req)
 }
