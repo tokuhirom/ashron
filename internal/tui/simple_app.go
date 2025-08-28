@@ -271,10 +271,6 @@ func (m *SimpleModel) View() string {
 	} else {
 		// Show textarea with prompt
 		b.WriteString("\n\n")
-		b.WriteString(lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#04B575")).
-			Bold(true).
-			Render("> "))
 		b.WriteString(m.textarea.View())
 	}
 
