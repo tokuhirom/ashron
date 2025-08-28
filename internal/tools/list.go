@@ -51,12 +51,6 @@ var AllTools = []ToolInfo{
 		Required: []string{"path"},
 	},
 	{
-		Name:        "init",
-		Description: "Generate an AGENTS.md file for the project",
-		Parameters:  map[string]string{},
-		Required:    []string{},
-	},
-	{
 		Name:        "list_tools",
 		Description: "List all available tools and their descriptions",
 		Parameters:  map[string]string{},
