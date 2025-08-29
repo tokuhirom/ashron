@@ -91,13 +91,6 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 		slog.Int("messages", len(req.Messages)),
 		slog.Int("tools", len(req.Tools)))
 
-	return c.StreamChatCompletion(ctx, req)
-}
-
-// StreamChatCompletion sends a streaming chat completion request
-func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRequest) (<-chan StreamEvent, error) {
-	req.Stream = true
-
 	slog.Debug("Starting streaming chat completion", "model", req.Model, "messages", len(req.Messages))
 
 	body, err := json.Marshal(req)
