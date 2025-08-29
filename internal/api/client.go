@@ -24,10 +24,14 @@ type Client struct {
 
 // NewClient creates a new API client
 func NewClient(cfg *config.APIConfig) *Client {
-	timeout := time.Duration(cfg.Timeout) * time.Second
+	timeout := cfg.Timeout
 	if timeout == 0 {
-		timeout = 60 * time.Second // fallback to 60 seconds if not configured
+		timeout = 5 * time.Minute // Default value
 	}
+
+	slog.Info("Creating API client",
+		slog.Duration("timeout", timeout))
+
 	return &Client{
 		config: cfg,
 		httpClient: &http.Client{
