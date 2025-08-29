@@ -62,19 +62,6 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 	return req, nil
 }
 
-// handleError processes API error responses
-func (c *Client) handleError(resp *http.Response) error {
-	body, _ := io.ReadAll(resp.Body)
-
-	var errResp ErrorResponse
-	if err := json.Unmarshal(body, &errResp); err != nil {
-		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-	}
-
-	return fmt.Errorf("API error: %s (type: %s, code: %s)",
-		errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
-}
-
 // StreamChatCompletionWithTools sends a streaming request with tool support
 func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (<-chan StreamEvent, error) {
 	req := &ChatCompletionRequest{
@@ -186,4 +173,17 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 	}()
 
 	return eventChan, nil
+}
+
+// handleError processes API error responses
+func (c *Client) handleError(resp *http.Response) error {
+	body, _ := io.ReadAll(resp.Body)
+
+	var errResp ErrorResponse
+	if err := json.Unmarshal(body, &errResp); err != nil {
+		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	return fmt.Errorf("API error: %s (type: %s, code: %s)",
+		errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
 }
