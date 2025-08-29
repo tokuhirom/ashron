@@ -25,20 +25,23 @@ func NewCommandRegistry() *CommandRegistry {
 				Name:        "/help",
 				Description: "Show help information",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
-					return cmdHelp(cr)
+					return cmdHelp(cr, m)
 				},
 			},
 			"/clear": {
 				Name:        "/clear",
 				Description: "Clear the screen",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
-					var b strings.Builder
-					b.WriteString("\033[2J\033[H") // Clear screen and move cursor to top
-					b.WriteString(lipgloss.NewStyle().
+					welcomeMsg := lipgloss.NewStyle().
 						Foreground(lipgloss.Color("#7D56F4")).
 						Bold(true).
-						Render("🤖 Ashron - AI Coding Assistant\n\n"))
-					return tea.Printf(b.String())
+						Render("🤖 Ashron - AI Coding Assistant")
+					helpMsg := lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#626262")).
+						Render("Type /help for available commands")
+					m.displayContent = []string{welcomeMsg, helpMsg, ""}
+					m.scrollOffset = 0
+					return nil
 				},
 			},
 			"/compact": {
@@ -51,7 +54,8 @@ func NewCommandRegistry() *CommandRegistry {
 						Foreground(lipgloss.Color("#626262")).
 						Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
 
-					return tea.Printf("\n%s\n", msg)
+					m.displayContent = append(m.displayContent, msg, "")
+					return nil
 				},
 			},
 			"/commit": {
@@ -99,7 +103,7 @@ func (c *CommandRegistry) GetCommand(name string) (*Command, bool) {
 }
 
 // cmdHelp displays available commands
-func cmdHelp(cr *CommandRegistry) tea.Cmd {
+func cmdHelp(cr *CommandRegistry, m *SimpleModel) tea.Cmd {
 	var sb strings.Builder
 	sb.WriteString("Available Commands:\n")
 	for _, cmd := range cr.commands {
@@ -116,7 +120,16 @@ Keyboard Shortcuts:
   y/n        - Approve/Cancel tool execution (when prompted)
   Enter      - New line in input`)
 
-	return tea.Println(lipgloss.NewStyle().
+	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
-		Render(sb.String()))
+		Render(sb.String())
+
+	// Add help text to display content
+	lines := strings.Split(helpText, "\n")
+	for _, line := range lines {
+		m.displayContent = append(m.displayContent, line)
+	}
+	m.displayContent = append(m.displayContent, "")
+
+	return nil
 }

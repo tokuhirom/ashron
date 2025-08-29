@@ -46,6 +46,8 @@ type SimpleModel struct {
 	loading   bool
 	err       error
 	statusMsg string
+	height    int
+	width     int
 
 	// Conversation state
 	waitingForApproval bool
@@ -59,6 +61,11 @@ type SimpleModel struct {
 	lastUserInput    string
 
 	commandRegistry *CommandRegistry
+
+	// Display content - stores all conversation output
+	displayContent []string
+	// Scroll offset for viewing conversation history
+	scrollOffset int
 }
 
 // NewSimpleModel creates a new simplified application model
@@ -101,15 +108,14 @@ You have access to tools for file operations and command execution. Always ask f
 
 	session.Messages = append(session.Messages, api.NewSystemMessage(systemPrompt))
 
-	// Print a welcome message
-	fmt.Println(lipgloss.NewStyle().
+	// Add welcome message to display content
+	welcomeMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#7D56F4")).
 		Bold(true).
-		Render("🤖 Ashron - AI Coding Assistant"))
-	fmt.Println(lipgloss.NewStyle().
+		Render("🤖 Ashron - AI Coding Assistant")
+	helpMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
-		Render("Type /help for available commands"))
-	fmt.Println()
+		Render("Type /help for available commands")
 
 	commandRegistry := NewCommandRegistry()
 
@@ -125,6 +131,8 @@ You have access to tools for file operations and command execution. Always ask f
 		statusMsg:       "Ready",
 		ready:           true,
 		commandRegistry: commandRegistry,
+		displayContent:  []string{welcomeMsg, helpMsg, ""},
+		scrollOffset:    0,
 	}, nil
 }
 
@@ -141,10 +149,11 @@ func (m *SimpleModel) ReadAgentsMD() {
 	content := agentsmd.ReadAgentsMD()
 	if content == "" {
 		slog.Info("No AGENTS.md found in current or parent directories")
-		fmt.Println(lipgloss.NewStyle().
+		warningMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF0000")).
 			Bold(true).
-			Render("No AGENTS.md found. I suggest to use '/init' command to generate AGENTS.md."))
+			Render("No AGENTS.md found. I suggest to use '/init' command to generate AGENTS.md.")
+		m.displayContent = append(m.displayContent, warningMsg)
 		return
 	}
 
@@ -161,7 +170,9 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		// Adjust textarea width
+		// Store window dimensions and adjust textarea width
+		m.width = msg.Width
+		m.height = msg.Height
 		m.textarea.SetWidth(msg.Width - 2)
 
 	case tea.KeyMsg:
@@ -175,15 +186,18 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case tea.KeyCtrlL:
-			// Clear chat (just clear screen in streaming mode)
-			var b strings.Builder
-			b.WriteString("\033[2J\033[H") // Clear screen and move cursor to top
-			b.WriteString(lipgloss.NewStyle().
+			// Clear chat conversation
+			welcomeMsg := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#7D56F4")).
 				Bold(true).
-				Render("🤖 Ashron - AI Coding Assistant") + "\n\n")
+				Render("🤖 Ashron - AI Coding Assistant")
+			helpMsg := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				Render("Type /help for available commands")
+			m.displayContent = []string{welcomeMsg, helpMsg, ""}
+			m.scrollOffset = 0
 			m.statusMsg = "Screen cleared"
-			return m, tea.Printf(b.String())
+			return m, nil
 
 		case tea.KeyCtrlJ:
 			m.textarea.InsertString("\n")
@@ -212,70 +226,84 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.executePendingTools()
 				case "n", "N":
 					m.cancelPendingTools()
-					return m, tea.Printf("\n" + lipgloss.NewStyle().
+					cancelMsg := lipgloss.NewStyle().
 						Foreground(lipgloss.Color("#FF3333")).
-						Render("✗ Tool execution cancelled\n"))
+						Render("✗ Tool execution cancelled")
+					m.displayContent = append(m.displayContent, cancelMsg, "")
+					return m, nil
 				}
 			}
 		}
 
 	case StreamOutput:
-		// Handle streaming output - print it using tea.Printf
+		// Handle streaming output - add to display content
 		m.loading = false
 		m.statusMsg = "Ready"
+
+		// Add output to display content
+		if msg.Content != "" {
+			// Split content by lines and add to display
+			lines := strings.Split(msg.Content, "\n")
+			for _, line := range lines {
+				if line != "" {
+					m.displayContent = append(m.displayContent, line)
+				}
+			}
+		}
 
 		// Check if we have pending tool calls
 		if len(m.pendingToolCalls) > 0 {
 			m.checkToolApproval()
 			if m.waitingForApproval {
-				return m, tea.Printf(msg.Content)
+				return m, nil
 			}
 			// Auto-approve and execute
 			m.approvePendingTools()
 			m.currentOperation = "Executing approved tools"
-			return m, tea.Sequence(
-				tea.Printf(msg.Content),
-				m.executePendingTools(),
-			)
+			return m, m.executePendingTools()
 		}
 
 		// Agent finished processing - send notification
 		m.sendCompletionNotification()
-		return m, tea.Printf(msg.Content)
+		return m, nil
 
 	case toolExecutionMsg:
 		// Handle tool execution result
 		m.handleToolResult(msg)
 
-		// Print any output from tool execution
-		cmds := []tea.Cmd{}
+		// Add any output from tool execution to display
 		if msg.output != "" {
-			cmds = append(cmds, tea.Printf(msg.output))
+			lines := strings.Split(msg.output, "\n")
+			for _, line := range lines {
+				if line != "" {
+					m.displayContent = append(m.displayContent, line)
+				}
+			}
 		}
 
 		if msg.hasMore {
 			m.currentOperation = "Processing tool results"
-			cmds = append(cmds, m.continueConversation())
+			return m, m.continueConversation()
 		} else {
 			// All processing done - send notification
 			m.sendCompletionNotification()
 		}
 
-		return m, tea.Batch(cmds...)
+		return m, nil
 
 	case errorMsg:
 		m.err = msg.error
 		m.loading = false
 		m.statusMsg = "Error: " + msg.error.Error()
 
-		// Provide more context for timeout errors
+		// Add error to display content
 		errorMessage := msg.error.Error()
-
-		// Print other errors normally
-		return m, tea.Printf(lipgloss.NewStyle().
+		errorDisplay := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Bold(true).
-			Render("\n✗ Error: "+errorMessage) + "\n")
+			Render("✗ Error: " + errorMessage)
+		m.displayContent = append(m.displayContent, errorDisplay, "")
+		return m, nil
 
 	case spinner.TickMsg:
 		if m.loading {
@@ -294,7 +322,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// View renders only the input area
+// View renders the entire UI with conversation history and input area
 func (m *SimpleModel) View() string {
 	if !m.ready {
 		return "\n  Initializing..."
@@ -302,18 +330,48 @@ func (m *SimpleModel) View() string {
 
 	var b strings.Builder
 
-	// Only show input area and status
+	// Calculate available height for content
+	textareaHeight := 5 // Input area height including borders
+	statusHeight := 2   // Status line height
+	contentHeight := m.height - textareaHeight - statusHeight
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+
+	// Render conversation history
+	displayStart := m.scrollOffset
+	displayEnd := displayStart + contentHeight
+	if displayEnd > len(m.displayContent) {
+		displayEnd = len(m.displayContent)
+		displayStart = displayEnd - contentHeight
+		if displayStart < 0 {
+			displayStart = 0
+		}
+	}
+
+	// Add visible content
+	for i := displayStart; i < displayEnd && i < len(m.displayContent); i++ {
+		b.WriteString(m.displayContent[i])
+		b.WriteString("\n")
+	}
+
+	// Fill remaining space
+	renderedLines := displayEnd - displayStart
+	for i := renderedLines; i < contentHeight; i++ {
+		b.WriteString("\n")
+	}
+
+	// Render status/input area
 	if m.loading {
 		// Show spinner during loading
-		b.WriteString("\n" + m.spinner.View() + " Processing...\n")
+		b.WriteString(m.spinner.View() + " Processing...\n")
 	} else if m.waitingForApproval {
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
 			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
 		b.WriteString("\n")
 	} else {
-		// Show textarea with prompt
-		b.WriteString("\n\n")
+		// Show textarea
 		b.WriteString(m.textarea.View())
 	}
 
@@ -331,9 +389,11 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 
 	cmd, ok := m.commandRegistry.GetCommand(input)
 	if !ok {
-		return tea.Println(lipgloss.NewStyle().
+		errorMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
-			Render(fmt.Sprintf("Unknown command: %s", parts[0])))
+			Render(fmt.Sprintf("Unknown command: %s", parts[0]))
+		m.displayContent = append(m.displayContent, errorMsg, "")
+		return nil
 	}
 
 	return cmd.Body(m.commandRegistry, m, parts[1:])
@@ -358,9 +418,18 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 		m.config.Context.MaxTokens,
 	)
 
-	return tea.Println("\n\n" + lipgloss.NewStyle().
+	configDisplay := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
-		Render(configData))
+		Render(configData)
+
+	// Add config to display content
+	lines := strings.Split(configDisplay, "\n")
+	for _, line := range lines {
+		m.displayContent = append(m.displayContent, line)
+	}
+	m.displayContent = append(m.displayContent, "")
+
+	return nil
 }
 
 // Helper functions for managing messages
@@ -434,7 +503,8 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		errMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Error generating AGENTS.md: %v", err))
-		return tea.Printf("\n%s\n", errMsg)
+		m.displayContent = append(m.displayContent, errMsg, "")
+		return nil
 	}
 
 	// Write the file
@@ -442,14 +512,16 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		errMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Error writing AGENTS.md: %v", err))
-		return tea.Printf("\n%s\n", errMsg)
+		m.displayContent = append(m.displayContent, errMsg, "")
+		return nil
 	}
 
-	// Show success message and content preview
-	output := "\n" + lipgloss.NewStyle().
+	// Show success message
+	successMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
-		Render("✓ Successfully generated AGENTS.md") + "\n\n"
+		Render("✓ Successfully generated AGENTS.md")
+	m.displayContent = append(m.displayContent, successMsg, "")
 
 	// Show first few lines of the content as preview
 	lines := strings.Split(content, "\n")
@@ -458,11 +530,17 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		preview += "\n..."
 	}
 
-	output += lipgloss.NewStyle().
+	previewDisplay := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
-		Render(preview) + "\n"
+		Render(preview)
 
-	return tea.Printf(output)
+	previewLines := strings.Split(previewDisplay, "\n")
+	for _, line := range previewLines {
+		m.displayContent = append(m.displayContent, line)
+	}
+	m.displayContent = append(m.displayContent, "")
+
+	return nil
 }
 
 // min returns the minimum of two integers

@@ -28,6 +28,11 @@ type StreamOutput struct {
 	Content string
 }
 
+// StreamingMsg represents a message chunk during streaming
+type StreamingMsg struct {
+	Content string
+}
+
 // SendMessage sends a user message to the API (SimpleModel version)
 func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	slog.Info("User sending message",
@@ -47,11 +52,11 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	m.currentOperation = "Processing user message"
 	m.lastUserInput = input
 
-	// Return a command that prints the user message and then processes
-	return tea.Sequence(
-		tea.Printf("\n%s\n\n", userMsg),
-		m.processMessage(),
-	)
+	// Add user message to display content
+	m.displayContent = append(m.displayContent, userMsg, "")
+
+	// Return a command that processes the message
+	return m.processMessage()
 }
 
 // processMessage handles the actual API call
@@ -95,9 +100,10 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 	toolCallsByIndex := make(map[int]*api.ToolCall)
 
 	// Add assistant label
-	output.WriteString(lipgloss.NewStyle().
+	assistantLabel := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FAFAFA")).
-		Render("Ashron: "))
+		Render("Ashron: ")
+	output.WriteString(assistantLabel)
 
 	slog.Debug("Starting to process stream")
 	m.currentOperation = "Receiving AI response"
@@ -251,6 +257,9 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 				if len(toolCalls) > 0 {
 					m.pendingToolCalls = toolCalls
 				}
+
+				// Store the final content
+				m.currentMessage = fullContent.String()
 
 				// Return the complete output as a StreamOutput message
 				return StreamOutput{Content: output.String()}
