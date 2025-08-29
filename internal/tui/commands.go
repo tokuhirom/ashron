@@ -109,8 +109,8 @@ func cmdHelp(cr *CommandRegistry) tea.Cmd {
 	sb.WriteString(`
 
 Keyboard Shortcuts:
-  Ctrl+J     - Send message
-  Alt+Enter  - Send message (alternative)
+  Ctrl+J     - Insert new line
+  Enter      - Send message
   Ctrl+C     - Cancel current operation or exit
   Ctrl+L     - Clear screen
   y/n        - Approve/Cancel tool execution (when prompted)

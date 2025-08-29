@@ -74,7 +74,7 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 
 	// Create UI components
 	ta := textarea.New()
-	ta.Placeholder = "Type your message... (Press Ctrl+J to send, /help for commands)"
+	ta.Placeholder = "Type your message... (Press Enter to send, /help for commands)"
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 10000
 	ta.SetHeight(3)
@@ -186,7 +186,11 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Printf(b.String())
 
 		case tea.KeyCtrlJ:
-			// Send message
+			m.textarea.InsertString("\n")
+			return m, nil
+
+		case tea.KeyEnter:
+			// Send a message
 			input := m.textarea.Value()
 			if strings.TrimSpace(input) != "" {
 				// Check for commands
@@ -194,28 +198,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.handleCommand(input)
 				}
 
-				// Send chat message
+				// Send a chat message
 				return m, m.SendMessage(input)
-			}
-
-		case tea.KeyEnter:
-			// Check if Alt is pressed for sending (Alt+Enter)
-			if msg.Alt {
-				// Send a message
-				input := m.textarea.Value()
-				if strings.TrimSpace(input) != "" {
-					// Check for commands
-					if strings.HasPrefix(input, "/") {
-						return m, m.handleCommand(input)
-					}
-
-					// Send a chat message
-					return m, m.SendMessage(input)
-				}
-			} else {
-				// Regular enter - let textarea handle it for newline
-				m.textarea, tiCmd = m.textarea.Update(msg)
-				return m, tiCmd
 			}
 
 		case tea.KeyRunes:

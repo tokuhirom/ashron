@@ -110,8 +110,8 @@ context:
 
 ### Keyboard Shortcuts
 
-- `Ctrl+J` - Send message  
-- `Alt+Enter` - Send message (alternative)
+- `Enter` - Send message  
+- `Ctrl+J` - Insert new line in input
 - `Ctrl+C` - Cancel current operation or exit
 - `Ctrl+L` - Clear chat
 - `Tab` - Approve pending tool calls

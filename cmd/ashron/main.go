@@ -122,8 +122,8 @@ Commands (in application):
   /exit                 Exit application
 
 Keyboard Shortcuts:
-  Ctrl+J               Send message
-  Alt+Enter            Send message (alternative)
+  Ctrl+J               Insert new line
+  Enter                Send message
   Ctrl+C               Cancel operation or exit
   Ctrl+L               Clear chat
   Tab                  Approve pending tool calls
