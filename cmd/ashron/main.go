@@ -1,12 +1,12 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"log/slog"
 	"os"
 
+	"github.com/alecthomas/kingpin/v2"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tokuhirom/ashron/internal/config"
 	"github.com/tokuhirom/ashron/internal/logger"
@@ -20,26 +20,17 @@ var (
 )
 
 func main() {
-	var (
-		showVersion = flag.Bool("version", false, "Show version information")
-		apiKey      = flag.String("api-key", "", "OpenAI API key (overrides config)")
-		model       = flag.String("model", "", "Model to use (overrides config)")
-		baseURL     = flag.String("base-url", "", "API base URL (overrides config)")
-		logFile     = flag.String("log", "", "Path to log file for debugging")
-		help        = flag.Bool("help", false, "Show help")
-	)
+	app := kingpin.New("ashron", "AI Coding Assistant\n\nAn interactive AI-powered coding assistant that helps with software engineering tasks.")
+	app.Version(fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date))
+	app.HelpFlag.Short('h')
+	app.Author("tokuhirom")
 
-	flag.Parse()
+	apiKey := app.Flag("api-key", "OpenAI API key (overrides config)").Envar("OPENAI_API_KEY").String()
+	model := app.Flag("model", "Model to use (overrides config)").String()
+	baseURL := app.Flag("base-url", "API base URL (overrides config)").String()
+	logFile := app.Flag("log", "Path to log file for debugging").String()
 
-	if *help {
-		printHelp()
-		os.Exit(0)
-	}
-
-	if *showVersion {
-		fmt.Printf("Ashron %s (commit: %s, built: %s)\n", version, commit, date)
-		os.Exit(0)
-	}
+	kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	// Setup logging
 	if err := logger.Setup(*logFile); err != nil {
@@ -89,53 +80,4 @@ func main() {
 
 func loadConfig() (*config.Config, error) {
 	return config.Load()
-}
-
-func printHelp() {
-	fmt.Println(`Ashron - AI Coding Assistant
-
-Usage:
-  ashron [options]
-
-Options:
-  -api-key string
-        OpenAI API key (overrides config)
-  -model string
-        Model to use (overrides config)
-  -base-url string
-        API base URL (overrides config)
-  -log string
-        Path to log file for debugging
-  -version
-        Show version information
-  -help
-        Show this help message
-
-Environment Variables:
-  OPENAI_API_KEY        OpenAI API key
-
-Commands (in application):
-  /help                 Show available commands
-  /clear                Clear chat history
-  /compact              Compact conversation context
-  /config               Show current configuration
-  /exit                 Exit application
-
-Keyboard Shortcuts:
-  Ctrl+J               Insert new line
-  Enter                Send message
-  Ctrl+C               Cancel operation or exit
-  Ctrl+L               Clear chat
-  Tab                  Approve pending tool calls
-  Esc                  Cancel pending tool calls
-  Enter                New line in input
-
-Configuration:
-  Ashron looks for configuration in the following locations:
-  1. $XDG_CONFIG_HOME/ashron/ashron.yaml
-  2. ~/.config/ashron/ashron.yaml
-  
-  If no config file exists, Ashron will create a default one at ~/.config/ashron/ashron.yaml
-
-For more information, visit: https://github.com/tokuhirom/ashron`)
 }
