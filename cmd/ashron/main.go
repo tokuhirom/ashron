@@ -32,14 +32,6 @@ func main() {
 
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
-	// Setup logging
-	if err := logger.Setup(*logFile); err != nil {
-		log.Fatalf("Failed to setup logging: %v", err)
-	}
-	defer logger.Close()
-
-	slog.Info("Starting Ashron", "version", version, "commit", commit)
-
 	// Load configuration
 	cfg, err := loadConfig()
 	if err != nil {
@@ -61,6 +53,14 @@ func main() {
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
+
+	// Setup logging
+	if err := logger.Setup(*logFile); err != nil {
+		log.Fatalf("Failed to setup logging: %v", err)
+	}
+	defer logger.Close()
+
+	slog.Info("Starting Ashron", "version", version, "commit", commit)
 
 	// Create the simple TUI model (streaming mode)
 	tuiModel, err := tui.NewSimpleModel(cfg)
