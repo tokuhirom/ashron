@@ -41,6 +41,59 @@ func NewClient(cfg *config.APIConfig) *Client {
 	}
 }
 
+// StreamEvent represents a streaming response event
+type StreamEvent struct {
+	Data  *StreamResponse
+	Error error
+}
+
+// newRequest creates a new HTTP request with authentication
+func (c *Client) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
+	url := c.baseURL + path
+
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+
+	return req, nil
+}
+
+// handleError processes API error responses
+func (c *Client) handleError(resp *http.Response) error {
+	body, _ := io.ReadAll(resp.Body)
+
+	var errResp ErrorResponse
+	if err := json.Unmarshal(body, &errResp); err != nil {
+		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	return fmt.Errorf("API error: %s (type: %s, code: %s)",
+		errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
+}
+
+// StreamChatCompletionWithTools sends a streaming request with tool support
+func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (<-chan StreamEvent, error) {
+	req := &ChatCompletionRequest{
+		Model:       c.config.Model,
+		Messages:    messages,
+		Temperature: c.config.Temperature,
+		MaxTokens:   c.config.MaxTokens,
+		Tools:       tools,
+		Stream:      true,
+	}
+
+	slog.Info("Sending streaming request",
+		slog.String("model", req.Model),
+		slog.Int("messages", len(req.Messages)),
+		slog.Int("tools", len(req.Tools)))
+
+	return c.StreamChatCompletion(ctx, req)
+}
+
 // StreamChatCompletion sends a streaming chat completion request
 func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRequest) (<-chan StreamEvent, error) {
 	req.Stream = true
@@ -140,57 +193,4 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req *ChatCompletionRe
 	}()
 
 	return eventChan, nil
-}
-
-// StreamEvent represents a streaming response event
-type StreamEvent struct {
-	Data  *StreamResponse
-	Error error
-}
-
-// newRequest creates a new HTTP request with authentication
-func (c *Client) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
-	url := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
-
-	return req, nil
-}
-
-// handleError processes API error responses
-func (c *Client) handleError(resp *http.Response) error {
-	body, _ := io.ReadAll(resp.Body)
-
-	var errResp ErrorResponse
-	if err := json.Unmarshal(body, &errResp); err != nil {
-		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-	}
-
-	return fmt.Errorf("API error: %s (type: %s, code: %s)",
-		errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
-}
-
-// StreamChatCompletionWithTools sends a streaming request with tool support
-func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (<-chan StreamEvent, error) {
-	req := &ChatCompletionRequest{
-		Model:       c.config.Model,
-		Messages:    messages,
-		Temperature: c.config.Temperature,
-		MaxTokens:   c.config.MaxTokens,
-		Tools:       tools,
-		Stream:      true,
-	}
-
-	slog.Info("Sending streaming request",
-		slog.String("model", req.Model),
-		slog.Int("messages", len(req.Messages)),
-		slog.Int("tools", len(req.Tools)))
-
-	return c.StreamChatCompletion(ctx, req)
 }
