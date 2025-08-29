@@ -258,7 +258,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 		}
 	}
 
-	// Stream ended without proper finish
+	// Stream ended without a proper finish
 	return StreamOutput{Content: output.String()}
 }
 
