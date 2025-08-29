@@ -309,19 +309,3 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 		}
 	}
 }
-
-// sendContinuation sends a continuation request
-func (m *SimpleModel) sendContinuation() tea.Cmd {
-	return func() tea.Msg {
-		ctx := context.Background()
-		slog.Debug("Sending continuation request after tool execution")
-		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, api.BuiltinTools)
-		if err != nil {
-			slog.Error("Failed to send continuation request", "error", err)
-			return errorMsg{error: err}
-		}
-
-		// Process the stream
-		return m.processStreamNew(stream)
-	}
-}

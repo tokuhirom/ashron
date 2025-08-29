@@ -485,7 +485,7 @@ func (m *SimpleModel) handleToolResult(msg toolExecutionMsg) {
 
 // continueConversation continues after tool execution
 func (m *SimpleModel) continueConversation() tea.Cmd {
-	return m.sendContinuation()
+	return m.processMessage()
 }
 
 // InitProject generates AGENTS.md for the project
