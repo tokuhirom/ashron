@@ -369,17 +369,6 @@ func (m *SimpleModel) renderFooter() string {
 			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
 		b.WriteString("\n")
 	} else {
-		// Show scroll info if content is scrollable
-		if m.viewport.TotalLineCount() > m.viewport.Height {
-			scrollPercent := int(m.viewport.ScrollPercent() * 100)
-			scrollInfo := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#626262")).
-				Italic(true).
-				Render(fmt.Sprintf("[%d%% - Use mouse wheel or arrow keys to scroll]", scrollPercent))
-			b.WriteString(scrollInfo)
-			b.WriteString("\n")
-		}
-		// Show textarea
 		b.WriteString(m.textarea.View())
 	}
 	return b.String()
