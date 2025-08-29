@@ -190,6 +190,14 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.Type {
+		case tea.KeyCtrlUp:
+			m.viewport.ScrollUp(1)
+			return m, nil
+
+		case tea.KeyCtrlDown:
+			m.viewport.ScrollDown(1)
+			return m, nil
+
 		case tea.KeyCtrlC:
 			if m.loading {
 				m.loading = false
@@ -199,16 +207,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case tea.KeyCtrlL:
-			// Clear chat conversation
-			welcomeMsg := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#7D56F4")).
-				Bold(true).
-				Render("🤖 Ashron - AI Coding Assistant")
-			helpMsg := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#626262")).
-				Render("Type /help for available commands")
-			m.displayContent = []string{welcomeMsg, helpMsg, ""}
-			m.viewport.GotoTop()
+			m.viewport.GotoBottom()
 			m.statusMsg = "Screen cleared"
 			return m, nil
 
@@ -342,13 +341,24 @@ func (m *SimpleModel) View() string {
 		return "\n  Initializing..."
 	}
 
-	var b strings.Builder
+	footer := m.renderFooter()
+	lipgloss.Height(footer)
 
-	// Render viewport with conversation history
+	m.viewport.Height = m.height - lipgloss.Height(footer) - 2
 	m.updateViewportContent()
-	b.WriteString(m.viewport.View())
-	b.WriteString("\n")
+	viewportContent := m.viewport.View()
 
+	slog.Info("Viewport content",
+		slog.Int("YOffset", m.viewport.YOffset))
+
+	return lipgloss.JoinVertical(
+		lipgloss.Top,
+		viewportContent,
+		footer)
+}
+
+func (m *SimpleModel) renderFooter() string {
+	var b strings.Builder
 	// Render status/input area
 	if m.loading {
 		// Show spinner during loading
@@ -372,7 +382,6 @@ func (m *SimpleModel) View() string {
 		// Show textarea
 		b.WriteString(m.textarea.View())
 	}
-
 	return b.String()
 }
 

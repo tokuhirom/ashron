@@ -69,7 +69,7 @@ func main() {
 	}
 
 	// Create the program without alt screen for streaming mode
-	p := tea.NewProgram(tuiModel)
+	p := tea.NewProgram(tuiModel, tea.WithAltScreen(), tea.WithMouseAllMotion())
 
 	// Run the program
 	if _, err := p.Run(); err != nil {
