@@ -270,11 +270,10 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		}
 		result.Output = string(out)
 
-		// Log and display the command output
+		// Log the command output
 		slog.Info("Command execution completed",
 			slog.String("command", command),
 			slog.String("output", result.Output))
-		fmt.Fprintf(os.Stderr, "Command output:\n%s\n", result.Output)
 
 		// Don't send individual command notifications - the main completion notification handles it
 
@@ -295,12 +294,11 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		}
 		result.Error = err
 
-		// Log and display the error with output
+		// Log the error with output
 		slog.Error("Command execution failed",
 			slog.String("command", command),
 			slog.String("error", err.Error()),
 			slog.String("output", result.Output))
-		fmt.Fprintf(os.Stderr, "Command failed: %v\nOutput:\n%s\n", err, result.Output)
 
 		// Don't send individual command notifications - the main completion notification handles it
 
@@ -316,11 +314,10 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		result.Error = fmt.Errorf("command timed out after %v", timeout)
 		result.Output = fmt.Sprintf("Error: Command timed out after %v", timeout)
 
-		// Log and display the timeout
+		// Log the timeout
 		slog.Error("Command execution timed out",
 			slog.String("command", command),
 			slog.Duration("timeout", timeout))
-		fmt.Fprintf(os.Stderr, "Command timed out after %v\n", timeout)
 
 		// Don't send individual command notifications - the main completion notification handles it
 	}
