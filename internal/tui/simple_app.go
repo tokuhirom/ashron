@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gen2brain/beeep"
+	"github.com/tokuhirom/ashron/internal/agentsmd"
 
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
@@ -129,10 +130,26 @@ You have access to tools for file operations and command execution. Always ask f
 
 // Init initializes the model
 func (m *SimpleModel) Init() tea.Cmd {
+	m.ReadAgentsMD()
 	return tea.Batch(
 		textarea.Blink,
 		m.spinner.Tick,
 	)
+}
+
+func (m *SimpleModel) ReadAgentsMD() {
+	content := agentsmd.ReadAgentsMD()
+	if content == "" {
+		slog.Info("No AGENTS.md found in current or parent directories")
+		fmt.Println(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000")).
+			Bold(true).
+			Render("No AGENTS.md found. I suggest to use '/init' command to generate AGENTS.md."))
+		return
+	}
+
+	slog.Info("Add AGENTS.md content to session messages")
+	m.session.Messages = append(m.session.Messages, api.NewSystemMessage(string(content)))
 }
 
 // Update handles messages
