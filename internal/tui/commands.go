@@ -40,7 +40,6 @@ func NewCommandRegistry() *CommandRegistry {
 						Foreground(lipgloss.Color("#626262")).
 						Render("Type /help for available commands")
 					m.displayContent = []string{welcomeMsg, helpMsg, ""}
-					m.updateViewportContent()
 					m.viewport.GotoTop()
 					return nil
 				},
@@ -56,7 +55,6 @@ func NewCommandRegistry() *CommandRegistry {
 						Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
 
 					m.displayContent = append(m.displayContent, msg, "")
-					m.updateViewportContent()
 					m.viewport.GotoBottom()
 					return nil
 				},
@@ -133,7 +131,6 @@ Keyboard Shortcuts:
 		m.displayContent = append(m.displayContent, line)
 	}
 	m.displayContent = append(m.displayContent, "")
-	m.updateViewportContent()
 	m.viewport.GotoBottom()
 
 	return nil

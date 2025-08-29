@@ -144,7 +144,6 @@ You have access to tools for file operations and command execution. Always ask f
 func (m *SimpleModel) Init() tea.Cmd {
 	m.ReadAgentsMD()
 	// Initialize viewport content
-	m.updateViewportContent()
 	return tea.Batch(
 		textarea.Blink,
 		m.spinner.Tick,
@@ -183,6 +182,12 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Width = msg.Width - 2
 		m.viewport.Height = msg.Height - 8
 
+	case tea.MouseMsg:
+		slog.Info("Mouse event",
+			slog.String("event", msg.String()))
+		_, cmd := m.viewport.Update(msg)
+		return m, cmd
+
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
@@ -203,7 +208,6 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Foreground(lipgloss.Color("#626262")).
 				Render("Type /help for available commands")
 			m.displayContent = []string{welcomeMsg, helpMsg, ""}
-			m.updateViewportContent()
 			m.viewport.GotoTop()
 			m.statusMsg = "Screen cleared"
 			return m, nil
@@ -239,7 +243,6 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						Foreground(lipgloss.Color("#FF3333")).
 						Render("✗ Tool execution cancelled")
 					m.displayContent = append(m.displayContent, cancelMsg, "")
-					m.updateViewportContent()
 					m.viewport.GotoBottom()
 					return m, nil
 				}
@@ -342,6 +345,7 @@ func (m *SimpleModel) View() string {
 	var b strings.Builder
 
 	// Render viewport with conversation history
+	m.updateViewportContent()
 	b.WriteString(m.viewport.View())
 	b.WriteString("\n")
 
@@ -378,19 +382,6 @@ func (m *SimpleModel) updateViewportContent() {
 	displayWithCurrent := make([]string, len(m.displayContent))
 	copy(displayWithCurrent, m.displayContent)
 
-	// If we have a current message being streamed, update it
-	if m.currentMessage != "" && m.loading {
-		// Find the last "Ashron: " label and update it with current content
-		for i := len(displayWithCurrent) - 1; i >= 0; i-- {
-			if strings.Contains(displayWithCurrent[i], "Ashron: ") {
-				displayWithCurrent[i] = lipgloss.NewStyle().
-					Foreground(lipgloss.Color("#FAFAFA")).
-					Render("Ashron: ") + m.currentMessage
-				break
-			}
-		}
-	}
-
 	// Join all content and set it in viewport
 	content := strings.Join(displayWithCurrent, "\n")
 	m.viewport.SetContent(content)
@@ -411,7 +402,6 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Unknown command: %s", parts[0]))
 		m.displayContent = append(m.displayContent, errorMsg, "")
-		m.updateViewportContent()
 		m.viewport.GotoBottom()
 		return nil
 	}
@@ -448,7 +438,6 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 		m.displayContent = append(m.displayContent, line)
 	}
 	m.displayContent = append(m.displayContent, "")
-	m.updateViewportContent()
 	m.viewport.GotoBottom()
 
 	return nil
