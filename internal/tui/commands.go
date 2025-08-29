@@ -54,8 +54,7 @@ func NewCommandRegistry() *CommandRegistry {
 						Foreground(lipgloss.Color("#626262")).
 						Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
 
-					m.displayContent = append(m.displayContent, msg, "")
-					m.viewport.GotoBottom()
+					m.AddDisplayContent(msg, "")
 					return nil
 				},
 			},
@@ -128,10 +127,9 @@ Keyboard Shortcuts:
 	// Add help text to display content
 	lines := strings.Split(helpText, "\n")
 	for _, line := range lines {
-		m.displayContent = append(m.displayContent, line)
+		m.AddDisplayContent(line)
 	}
-	m.displayContent = append(m.displayContent, "")
-	m.viewport.GotoBottom()
+	m.AddDisplayContent("")
 
 	return nil
 }

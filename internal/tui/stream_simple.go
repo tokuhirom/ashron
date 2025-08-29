@@ -53,7 +53,7 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	m.lastUserInput = input
 
 	// Add user message to display content
-	m.displayContent = append(m.displayContent, userMsg, "")
+	m.AddDisplayContent(userMsg, "")
 
 	// Return a command that processes the message
 	return m.processMessage()

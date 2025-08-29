@@ -158,7 +158,7 @@ func (m *SimpleModel) ReadAgentsMD() {
 			Foreground(lipgloss.Color("#FF0000")).
 			Bold(true).
 			Render("No AGENTS.md found. I suggest to use '/init' command to generate AGENTS.md.")
-		m.displayContent = append(m.displayContent, warningMsg)
+		m.AddDisplayContent(warningMsg)
 		return
 	}
 
@@ -241,8 +241,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cancelMsg := lipgloss.NewStyle().
 						Foreground(lipgloss.Color("#FF3333")).
 						Render("✗ Tool execution cancelled")
-					m.displayContent = append(m.displayContent, cancelMsg, "")
-					m.viewport.GotoBottom()
+					m.AddDisplayContent(cancelMsg, "")
 					return m, nil
 				}
 			}
@@ -259,7 +258,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			lines := strings.Split(msg.Content, "\n")
 			for _, line := range lines {
 				if line != "" {
-					m.displayContent = append(m.displayContent, line)
+					m.AddDisplayContent(line)
 				}
 			}
 		}
@@ -289,7 +288,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			lines := strings.Split(msg.output, "\n")
 			for _, line := range lines {
 				if line != "" {
-					m.displayContent = append(m.displayContent, line)
+					m.AddDisplayContent(line)
 				}
 			}
 		}
@@ -315,7 +314,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Foreground(lipgloss.Color("#FF3333")).
 			Bold(true).
 			Render("✗ Error: " + errorMessage)
-		m.displayContent = append(m.displayContent, errorDisplay, "")
+		m.AddDisplayContent(errorDisplay, "")
 		return m, nil
 
 	case spinner.TickMsg:
@@ -344,9 +343,9 @@ func (m *SimpleModel) View() string {
 	footer := m.renderFooter()
 	lipgloss.Height(footer)
 
-	m.viewport.Height = m.height - lipgloss.Height(footer) - 2
+	m.viewport.Height = m.height - lipgloss.Height(footer) - 3
 	m.updateViewportContent()
-	viewportContent := m.viewport.View()
+	viewportContent := m.viewport.View() + "\n\n"
 
 	slog.Info("Viewport content",
 		slog.Int("YOffset", m.viewport.YOffset))
@@ -399,8 +398,7 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 		errorMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Unknown command: %s", parts[0]))
-		m.displayContent = append(m.displayContent, errorMsg, "")
-		m.viewport.GotoBottom()
+		m.AddDisplayContent(errorMsg, "")
 		return nil
 	}
 
@@ -433,10 +431,9 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 	// Add config to display content
 	lines := strings.Split(configDisplay, "\n")
 	for _, line := range lines {
-		m.displayContent = append(m.displayContent, line)
+		m.AddDisplayContent(line)
 	}
-	m.displayContent = append(m.displayContent, "")
-	m.viewport.GotoBottom()
+	m.AddDisplayContent("")
 
 	return nil
 }
@@ -512,7 +509,7 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		errMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Error generating AGENTS.md: %v", err))
-		m.displayContent = append(m.displayContent, errMsg, "")
+		m.AddDisplayContent(errMsg, "")
 		return nil
 	}
 
@@ -521,7 +518,7 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		errMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Error writing AGENTS.md: %v", err))
-		m.displayContent = append(m.displayContent, errMsg, "")
+		m.AddDisplayContent(errMsg, "")
 		return nil
 	}
 
@@ -530,7 +527,7 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
 		Render("✓ Successfully generated AGENTS.md")
-	m.displayContent = append(m.displayContent, successMsg, "")
+	m.AddDisplayContent(successMsg, "")
 
 	// Show first few lines of the content as preview
 	lines := strings.Split(content, "\n")
@@ -591,6 +588,12 @@ func (m *SimpleModel) sendCompletionNotification() {
 	if err := beeep.Notify(title, msg, ""); err != nil {
 		slog.Debug("Failed to send completion notification", "error", err)
 	}
+}
+
+// AddDisplayContent appends content to displayContent and automatically scrolls to bottom
+func (m *SimpleModel) AddDisplayContent(content ...string) {
+	m.displayContent = append(m.displayContent, content...)
+	m.viewport.GotoBottom()
 }
 
 func (m *SimpleModel) CompactContext() (int, int) {
