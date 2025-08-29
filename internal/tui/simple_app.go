@@ -180,6 +180,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.textarea.SetWidth(msg.Width - 2)
+		m.viewport.Width = msg.Width - 2
+		m.viewport.Height = msg.Height - 8
 
 	case tea.KeyMsg:
 		switch msg.Type {
