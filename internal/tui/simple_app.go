@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gen2brain/beeep"
@@ -30,6 +31,7 @@ type SimpleModel struct {
 	// UI components
 	textarea textarea.Model
 	spinner  spinner.Model
+	viewport viewport.Model
 
 	// Chat state
 	session  *api.ChatSession
@@ -64,8 +66,6 @@ type SimpleModel struct {
 
 	// Display content - stores all conversation output
 	displayContent []string
-	// Scroll offset for viewing conversation history
-	scrollOffset int
 }
 
 // NewSimpleModel creates a new simplified application model
@@ -90,6 +90,10 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = spinnerStyle
+
+	// Create viewport for conversation history
+	vp := viewport.New(80, 20) // Will be resized in Init
+	vp.MouseWheelEnabled = true
 
 	// Initialize session
 	session := &api.ChatSession{
@@ -124,6 +128,7 @@ You have access to tools for file operations and command execution. Always ask f
 		apiClient:       apiClient,
 		textarea:        ta,
 		spinner:         sp,
+		viewport:        vp,
 		session:         session,
 		messages:        session.Messages,
 		contextMgr:      ctxMgr,
@@ -132,13 +137,14 @@ You have access to tools for file operations and command execution. Always ask f
 		ready:           true,
 		commandRegistry: commandRegistry,
 		displayContent:  []string{welcomeMsg, helpMsg, ""},
-		scrollOffset:    0,
 	}, nil
 }
 
 // Init initializes the model
 func (m *SimpleModel) Init() tea.Cmd {
 	m.ReadAgentsMD()
+	// Initialize viewport content
+	m.updateViewportContent()
 	return tea.Batch(
 		textarea.Blink,
 		m.spinner.Tick,
@@ -195,7 +201,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Foreground(lipgloss.Color("#626262")).
 				Render("Type /help for available commands")
 			m.displayContent = []string{welcomeMsg, helpMsg, ""}
-			m.scrollOffset = 0
+			m.updateViewportContent()
+			m.viewport.GotoTop()
 			m.statusMsg = "Screen cleared"
 			return m, nil
 
@@ -230,6 +237,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						Foreground(lipgloss.Color("#FF3333")).
 						Render("✗ Tool execution cancelled")
 					m.displayContent = append(m.displayContent, cancelMsg, "")
+					m.updateViewportContent()
+					m.viewport.GotoBottom()
 					return m, nil
 				}
 			}
@@ -330,36 +339,9 @@ func (m *SimpleModel) View() string {
 
 	var b strings.Builder
 
-	// Calculate available height for content
-	textareaHeight := 5 // Input area height including borders
-	statusHeight := 2   // Status line height
-	contentHeight := m.height - textareaHeight - statusHeight
-	if contentHeight < 1 {
-		contentHeight = 1
-	}
-
-	// Render conversation history
-	displayStart := m.scrollOffset
-	displayEnd := displayStart + contentHeight
-	if displayEnd > len(m.displayContent) {
-		displayEnd = len(m.displayContent)
-		displayStart = displayEnd - contentHeight
-		if displayStart < 0 {
-			displayStart = 0
-		}
-	}
-
-	// Add visible content
-	for i := displayStart; i < displayEnd && i < len(m.displayContent); i++ {
-		b.WriteString(m.displayContent[i])
-		b.WriteString("\n")
-	}
-
-	// Fill remaining space
-	renderedLines := displayEnd - displayStart
-	for i := renderedLines; i < contentHeight; i++ {
-		b.WriteString("\n")
-	}
+	// Render viewport with conversation history
+	b.WriteString(m.viewport.View())
+	b.WriteString("\n")
 
 	// Render status/input area
 	if m.loading {
@@ -371,11 +353,45 @@ func (m *SimpleModel) View() string {
 			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
 		b.WriteString("\n")
 	} else {
+		// Show scroll info if content is scrollable
+		if m.viewport.TotalLineCount() > m.viewport.Height {
+			scrollPercent := int(m.viewport.ScrollPercent() * 100)
+			scrollInfo := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				Italic(true).
+				Render(fmt.Sprintf("[%d%% - Use mouse wheel or arrow keys to scroll]", scrollPercent))
+			b.WriteString(scrollInfo)
+			b.WriteString("\n")
+		}
 		// Show textarea
 		b.WriteString(m.textarea.View())
 	}
 
 	return b.String()
+}
+
+// updateViewportContent updates the viewport with current display content
+func (m *SimpleModel) updateViewportContent() {
+	// Build content with current streaming message if any
+	displayWithCurrent := make([]string, len(m.displayContent))
+	copy(displayWithCurrent, m.displayContent)
+
+	// If we have a current message being streamed, update it
+	if m.currentMessage != "" && m.loading {
+		// Find the last "Ashron: " label and update it with current content
+		for i := len(displayWithCurrent) - 1; i >= 0; i-- {
+			if strings.Contains(displayWithCurrent[i], "Ashron: ") {
+				displayWithCurrent[i] = lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#FAFAFA")).
+					Render("Ashron: ") + m.currentMessage
+				break
+			}
+		}
+	}
+
+	// Join all content and set it in viewport
+	content := strings.Join(displayWithCurrent, "\n")
+	m.viewport.SetContent(content)
 }
 
 // handleCommand processes slash commands
@@ -393,6 +409,8 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 			Foreground(lipgloss.Color("#FF3333")).
 			Render(fmt.Sprintf("Unknown command: %s", parts[0]))
 		m.displayContent = append(m.displayContent, errorMsg, "")
+		m.updateViewportContent()
+		m.viewport.GotoBottom()
 		return nil
 	}
 
@@ -428,6 +446,8 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 		m.displayContent = append(m.displayContent, line)
 	}
 	m.displayContent = append(m.displayContent, "")
+	m.updateViewportContent()
+	m.viewport.GotoBottom()
 
 	return nil
 }
