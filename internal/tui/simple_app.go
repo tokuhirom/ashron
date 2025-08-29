@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -485,7 +486,18 @@ func (m *SimpleModel) handleToolResult(msg toolExecutionMsg) {
 
 // continueConversation continues after tool execution
 func (m *SimpleModel) continueConversation() tea.Cmd {
-	return m.sendContinuation()
+	return func() tea.Msg {
+		ctx := context.Background()
+		slog.Debug("Sending continuation request after tool execution")
+		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, api.BuiltinTools)
+		if err != nil {
+			slog.Error("Failed to send continuation request", "error", err)
+			return errorMsg{error: err}
+		}
+
+		// Process the stream
+		return m.processStreamNew(stream)
+	}
 }
 
 // InitProject generates AGENTS.md for the project
