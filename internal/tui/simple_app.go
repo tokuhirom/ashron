@@ -541,9 +541,7 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 		Render(preview)
 
 	previewLines := strings.Split(previewDisplay, "\n")
-	for _, line := range previewLines {
-		m.displayContent = append(m.displayContent, line)
-	}
+	m.displayContent = append(m.displayContent, previewLines...)
 	m.displayContent = append(m.displayContent, "")
 
 	return nil
