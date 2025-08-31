@@ -215,12 +215,6 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 		ToolCallID: toolCallID,
 	}
 
-	if !e.config.EnableCommandExec {
-		result.Error = fmt.Errorf("command execution is disabled")
-		result.Output = "Error: Command execution is disabled in configuration"
-		return result
-	}
-
 	command, ok := args["command"].(string)
 	if !ok {
 		result.Error = fmt.Errorf("missing or invalid 'command' argument")
@@ -420,13 +414,6 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 		ToolCallID: toolCallID,
 	}
 
-	// Check if command execution is enabled
-	if !e.config.EnableCommandExec {
-		result.Error = fmt.Errorf("command execution is disabled")
-		result.Output = "Error: Command execution is disabled in configuration"
-		return result
-	}
-
 	// Get the pattern (required)
 	pattern, ok := args["pattern"].(string)
 	if !ok || pattern == "" {
@@ -525,13 +512,6 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 func (e *Executor) gitLsFiles(toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
-	}
-
-	// Check if command execution is enabled
-	if !e.config.EnableCommandExec {
-		result.Error = fmt.Errorf("command execution is disabled")
-		result.Output = "Error: Command execution is disabled in configuration"
-		return result
 	}
 
 	// Build git ls-files command

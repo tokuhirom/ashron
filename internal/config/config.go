@@ -38,8 +38,6 @@ type ToolsConfig struct {
 	MaxOutputSize  int      `mapstructure:"max_output_size"`
 	CommandTimeout int      `mapstructure:"command_timeout"`
 	EnableFileOps  bool     `mapstructure:"enable_file_ops"`
-	// Deprecate this
-	EnableCommandExec bool `mapstructure:"enable_command_exec"`
 }
 
 type ContextConfig struct {
