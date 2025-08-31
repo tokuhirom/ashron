@@ -51,17 +51,5 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		result.Output = fmt.Sprintf("Error: Unknown tool '%s'", toolCall.Function.Name)
 	}
 
-	if result.Error != nil {
-		slog.Error("Tool execution failed",
-			slog.String("tool", toolCall.Function.Name),
-			slog.Any("error", result.Error))
-	}
-
 	return result
-}
-
-// IsAutoApproved checks if a tool is auto-approved
-func (e *Executor) IsAutoApproved(toolName string) bool {
-	// This is now handled by the config, but kept for compatibility
-	return false
 }
