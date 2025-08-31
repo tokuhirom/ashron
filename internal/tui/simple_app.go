@@ -193,11 +193,11 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlUp:
+		case tea.KeyCtrlP:
 			m.viewport.ScrollUp(1)
 			return m, nil
 
-		case tea.KeyCtrlDown:
+		case tea.KeyCtrlN:
 			m.viewport.ScrollDown(1)
 			return m, nil
 
