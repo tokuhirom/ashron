@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,19 +11,26 @@ import (
 	"github.com/tokuhirom/ashron/internal/config"
 )
 
-func ListDirectory(_ *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+type ListDirectoryArgs struct {
+	Path string `json:"path"`
+}
+
+func ListDirectory(_ *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
 
-	path, ok := args["path"].(string)
-	if !ok {
-		result.Error = fmt.Errorf("missing or invalid 'path' argument")
-		result.Output = "Error: Missing or invalid 'path' argument"
+	// Parse arguments
+	var args ListDirectoryArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
 		return result
 	}
 
-	// Clean and validate path
+	path := args.Path
+
+	// Clean and validate the path
 	path = filepath.Clean(path)
 
 	// Read directory

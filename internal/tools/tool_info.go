@@ -10,7 +10,7 @@ type ToolInfo struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  api.FunctionParameters `json:"parameters"`
-	callback    func(toolsConfig *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult
+	callback    func(toolsConfig *config.ToolsConfig, toolCallID string, args string) api.ToolResult
 }
 
 // GetAllTools contains the metadata for all available tools

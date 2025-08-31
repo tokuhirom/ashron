@@ -9,15 +9,26 @@ import (
 	"github.com/tokuhirom/ashron/internal/config"
 )
 
-func ListTools(_ *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+type ListToolsArgs struct {
+	Format string `json:"format"` // "text" or "json"
+}
+
+func ListTools(_ *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
 
+	var args ListToolsArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
+		return result
+	}
+
 	// Check if JSON format is requested
-	format := ""
-	if f, ok := args["format"].(string); ok {
-		format = f
+	format := args.Format
+	if format == "" {
+		format = "text"
 	}
 
 	var output string

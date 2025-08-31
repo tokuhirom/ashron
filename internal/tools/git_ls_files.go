@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,58 +12,73 @@ import (
 	"github.com/tokuhirom/ashron/internal/config"
 )
 
-func GitLsFiles(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+type GitLsFilesArgs struct {
+	Cached          bool   `json:"cached,omitempty"`           // Show cached files
+	Deleted         bool   `json:"deleted,omitempty"`          // Show deleted files
+	Modified        bool   `json:"modified,omitempty"`         // Show modified files
+	Others          bool   `json:"others,omitempty"`           // Show untracked files
+	Ignored         bool   `json:"ignored,omitempty"`          // Show ignored files
+	Stage           bool   `json:"stage,omitempty"`            // Show staged files
+	Unmerged        bool   `json:"unmerged,omitempty"`         // Show unmerged files
+	Killed          bool   `json:"killed,omitempty"`           // Show files that git checkout would overwrite
+	ExcludeStandard bool   `json:"exclude_standard,omitempty"` // Use standard git exclusions
+	FullName        bool   `json:"full_name,omitempty"`        // Show full path from repository root
+	Path            string `json:"path,omitempty"`             // Limit to specific path or file pattern
+}
+
+func GitLsFiles(config *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
+	}
+
+	var args GitLsFilesArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		slog.Error("Failed to parse tool arguments",
+			slog.Any("error", err),
+			slog.Any("arguments", argsJson))
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
+		return result
 	}
 
 	// Build git ls-files command
 	cmdArgs := []string{"ls-files"}
 
 	// Add optional flags
-	if cached, ok := args["cached"].(bool); ok && cached {
+	if args.Cached {
 		cmdArgs = append(cmdArgs, "--cached")
 	}
-
-	if deleted, ok := args["deleted"].(bool); ok && deleted {
+	if args.Deleted {
 		cmdArgs = append(cmdArgs, "--deleted")
 	}
-
-	if modified, ok := args["modified"].(bool); ok && modified {
+	if args.Modified {
 		cmdArgs = append(cmdArgs, "--modified")
 	}
-
-	if others, ok := args["others"].(bool); ok && others {
+	if args.Others {
 		cmdArgs = append(cmdArgs, "--others")
 	}
-
-	if ignored, ok := args["ignored"].(bool); ok && ignored {
+	if args.Ignored {
 		cmdArgs = append(cmdArgs, "--ignored")
 	}
-
-	if stage, ok := args["stage"].(bool); ok && stage {
+	if args.Stage {
 		cmdArgs = append(cmdArgs, "--stage")
 	}
-
-	if unmerged, ok := args["unmerged"].(bool); ok && unmerged {
+	if args.Unmerged {
 		cmdArgs = append(cmdArgs, "--unmerged")
 	}
-
-	if killed, ok := args["killed"].(bool); ok && killed {
+	if args.Killed {
 		cmdArgs = append(cmdArgs, "--killed")
 	}
-
-	if excludeStandard, ok := args["exclude_standard"].(bool); ok && excludeStandard {
+	if args.ExcludeStandard {
 		cmdArgs = append(cmdArgs, "--exclude-standard")
 	}
-
-	if fullName, ok := args["full_name"].(bool); ok && fullName {
+	if args.FullName {
 		cmdArgs = append(cmdArgs, "--full-name")
 	}
 
 	// Add optional path
-	if path, ok := args["path"].(string); ok && path != "" {
-		cmdArgs = append(cmdArgs, "--", path)
+	if args.Path != "" {
+		cmdArgs = append(cmdArgs, "--", args.Path)
 	}
 
 	// Execute git ls-files

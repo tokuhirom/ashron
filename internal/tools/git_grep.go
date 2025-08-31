@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -10,41 +12,49 @@ import (
 	"github.com/tokuhirom/ashron/internal/config"
 )
 
-func GitGrep(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+type GitGrepArgs struct {
+	Pattern         string `json:"pattern"`                    // The search pattern (required)
+	CaseInsensitive bool   `json:"case_insensitive,omitempty"` // Perform case-insensitive matching
+	LineNumber      bool   `json:"line_number,omitempty"`      // Show line numbers in output
+	Count           bool   `json:"count,omitempty"`            // Show only count of matching lines
+	Path            string `json:"path,omitempty"`             // Limit search to specific path or file pattern
+}
+
+func GitGrep(config *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
 
-	// Get the pattern (required)
-	pattern, ok := args["pattern"].(string)
-	if !ok || pattern == "" {
-		result.Error = fmt.Errorf("missing or invalid 'pattern' argument")
-		result.Output = "Error: Missing or invalid 'pattern' argument"
+	var args GitGrepArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		slog.Error("Failed to parse tool arguments",
+			slog.Any("error", err),
+			slog.Any("arguments", argsJson))
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
 		return result
 	}
 
+	pattern := args.Pattern
+
 	// Build git grep command
 	cmdArgs := []string{"grep"}
-
-	// Add optional flags
-	if caseInsensitive, ok := args["case_insensitive"].(bool); ok && caseInsensitive {
+	if args.CaseInsensitive {
 		cmdArgs = append(cmdArgs, "-i")
 	}
-
-	if lineNumber, ok := args["line_number"].(bool); ok && lineNumber {
+	if args.LineNumber {
 		cmdArgs = append(cmdArgs, "-n")
 	}
-
-	if count, ok := args["count"].(bool); ok && count {
+	if args.Count {
 		cmdArgs = append(cmdArgs, "-c")
 	}
 
 	// Add the pattern
 	cmdArgs = append(cmdArgs, pattern)
 
-	// Add optional path
-	if path, ok := args["path"].(string); ok && path != "" {
-		cmdArgs = append(cmdArgs, "--", path)
+	// Add an optional path
+	if args.Path != "" {
+		cmdArgs = append(cmdArgs, "--", args.Path)
 	}
 
 	// Execute git grep
@@ -66,10 +76,9 @@ func GitGrep(config *config.ToolsConfig, toolCallID string, args map[string]inte
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			// git grep returns exit code 1 when no matches found - this is not an error
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 				output <- []byte("No matches found")
-			} else {
-				errChan <- err
 			}
 		} else {
 			output <- out

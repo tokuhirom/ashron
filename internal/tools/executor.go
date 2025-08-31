@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -38,28 +37,16 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		slog.String("tool", toolCall.Function.Name),
 		slog.String("id", toolCall.ID))
 
-	// Parse arguments
-	// TODO: don't parse here. parse it in the each tool function
-	var args map[string]interface{}
-	if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-		slog.Error("Failed to parse tool arguments",
-			slog.Any("error", err),
-			slog.Any("arguments", toolCall.Function.Arguments))
-		result.Error = fmt.Errorf("invalid arguments: %w", err)
-		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
-		return result
-	}
-
 	// Execute based on function name
 	if tool, ok := e.toolInfoByName[toolCall.Function.Name]; ok {
 		slog.Debug("Found tool info",
 			slog.String("tool", tool.Name),
-			slog.Any("args", args))
-		result = tool.callback(e.config, toolCall.ID, args)
+			slog.Any("args", toolCall.Function.Arguments))
+		result = tool.callback(e.config, toolCall.ID, toolCall.Function.Arguments)
 	} else {
 		slog.Warn("Tool not found in tool info list",
 			slog.String("tool", toolCall.Function.Name),
-			slog.Any("args", args))
+			slog.Any("args", toolCall.Function.Arguments))
 		result.Error = fmt.Errorf("unknown tool: %s", toolCall.Function.Name)
 		result.Output = fmt.Sprintf("Error: Unknown tool '%s'", toolCall.Function.Name)
 	}

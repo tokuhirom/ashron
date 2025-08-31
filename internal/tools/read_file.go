@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,19 +13,27 @@ import (
 	"github.com/tokuhirom/ashron/internal/config"
 )
 
-func ReadFile(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+type ReadFileArgs struct {
+	Path string `json:"path"`
+}
+
+func ReadFile(config *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
 
 	// TODO: support read offset
-
-	path, ok := args["path"].(string)
-	if !ok {
-		result.Error = fmt.Errorf("missing or invalid 'path' argument")
-		result.Output = "Error: Missing or invalid 'path' argument"
+	var args ReadFileArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		slog.Error("Failed to parse tool arguments",
+			slog.Any("error", err),
+			slog.Any("arguments", args))
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
 		return result
 	}
+
+	path := args.Path
 
 	// Clean and validate path
 	path = filepath.Clean(path)

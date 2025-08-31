@@ -1,7 +1,9 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -9,24 +11,28 @@ import (
 	"github.com/tokuhirom/ashron/internal/config"
 )
 
-func WriteFile(_ *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+type WriteFileArgs struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+func WriteFile(_ *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
 
-	path, ok := args["path"].(string)
-	if !ok {
-		result.Error = fmt.Errorf("missing or invalid 'path' argument")
-		result.Output = "Error: Missing or invalid 'path' argument"
+	var args WriteFileArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		slog.Error("Failed to parse tool arguments",
+			slog.Any("error", err),
+			slog.Any("arguments", args))
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
 		return result
 	}
 
-	content, ok := args["content"].(string)
-	if !ok {
-		result.Error = fmt.Errorf("missing or invalid 'content' argument")
-		result.Output = "Error: Missing or invalid 'content' argument"
-		return result
-	}
+	path := args.Path
+	content := args.Content
 
 	// Clean and validate path
 	path = filepath.Clean(path)

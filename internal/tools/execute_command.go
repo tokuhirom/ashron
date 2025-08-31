@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -15,23 +16,23 @@ type ExecuteCommandArgs struct {
 	WorkingDir string `json:"working_dir,omitempty"`
 }
 
-func ExecuteCommand(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
+func ExecuteCommand(config *config.ToolsConfig, toolCallID string, argsJson string) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
 
-	command, ok := args["command"].(string)
-	if !ok {
-		result.Error = fmt.Errorf("missing or invalid 'command' argument")
-		result.Output = "Error: Missing or invalid 'command' argument"
+	var args ExecuteCommandArgs
+	if err := json.Unmarshal([]byte(argsJson), &args); err != nil {
+		slog.Error("Failed to parse tool arguments",
+			slog.Any("error", err),
+			slog.Any("arguments", args))
+		result.Error = fmt.Errorf("invalid arguments: %w", err)
+		result.Output = fmt.Sprintf("Error: Failed to parse arguments - %v", err)
 		return result
 	}
 
-	// Get a working directory if specified
-	workingDir := ""
-	if wd, ok := args["working_dir"].(string); ok {
-		workingDir = wd
-	}
+	command := args.Command
+	workingDir := args.WorkingDir
 
 	// Create command
 	slog.Info("executing command by 'sh -c'",
