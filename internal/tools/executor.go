@@ -391,8 +391,7 @@ func GitGrep(config *config.ToolsConfig, toolCallID string, args map[string]inte
 	cmd := exec.Command("git", cmdArgs...)
 
 	// Set timeout
-	timeout := time.Duration(config.CommandTimeout) * time.Second
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(config.CommandTimeout)
 	defer timer.Stop()
 
 	// Run command
@@ -437,9 +436,9 @@ func GitGrep(config *config.ToolsConfig, toolCallID string, args map[string]inte
 					"error", err)
 			}
 		}
-		result.Error = fmt.Errorf("git grep timed out after %v", timeout)
-		result.Output = fmt.Sprintf("Error: Git grep timed out after %v", timeout)
-		slog.Error("git grep timed out", "timeout", timeout)
+		result.Error = fmt.Errorf("git grep timed out after %v", config.CommandTimeout)
+		result.Output = fmt.Sprintf("Error: Git grep timed out after %v", config.CommandTimeout)
+		slog.Error("git grep timed out", "timeout", config.CommandTimeout)
 	}
 
 	return result
@@ -506,8 +505,7 @@ func GitLsFiles(config *config.ToolsConfig, toolCallID string, args map[string]i
 	cmd := exec.Command("git", cmdArgs...)
 
 	// Set timeout
-	timeout := time.Duration(config.CommandTimeout) * time.Second
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(config.CommandTimeout)
 	defer timer.Stop()
 
 	// Run command
@@ -554,9 +552,9 @@ func GitLsFiles(config *config.ToolsConfig, toolCallID string, args map[string]i
 					"error", err)
 			}
 		}
-		result.Error = fmt.Errorf("git ls-files timed out after %v", timeout)
-		result.Output = fmt.Sprintf("Error: Git ls-files timed out after %v", timeout)
-		slog.Error("git ls-files timed out", "timeout", timeout)
+		result.Error = fmt.Errorf("git ls-files timed out after %v", config.CommandTimeout)
+		result.Output = fmt.Sprintf("Error: Git ls-files timed out after %v", config.CommandTimeout)
+		slog.Error("git ls-files timed out", "timeout", config.CommandTimeout)
 	}
 
 	return result
