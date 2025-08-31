@@ -98,8 +98,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("tools.auto_approve", []string{"read_file", "list_directory"})
 	v.SetDefault("tools.max_output_size", 50000)
 	v.SetDefault("tools.command_timeout", 30)
-	v.SetDefault("tools.enable_file_ops", true)
-	v.SetDefault("tools.enable_command_exec", true)
 
 	// Context defaults
 	v.SetDefault("context.max_messages", 50)
