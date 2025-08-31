@@ -308,14 +308,15 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 
 			// Truncate long output for display
 			lines := strings.Split(result.Output, "\n")
-			if len(lines) > 5 {
-				displayOutput := strings.Join(lines[:5], "\n")
+			maxLines := 10
+			if len(lines) > maxLines {
+				displayOutput := strings.Join(lines[:maxLines], "\n")
 				output.WriteString(displayOutput)
 				output.WriteString("\n")
 				output.WriteString(lipgloss.NewStyle().
 					Foreground(lipgloss.Color("#626262")).
 					Italic(true).
-					Render(fmt.Sprintf("[... %d more lines truncated for display]", len(lines)-5)))
+					Render(fmt.Sprintf("[... %d more lines truncated for display]", len(lines)-maxLines)))
 			} else {
 				output.WriteString(result.Output)
 			}
