@@ -109,6 +109,7 @@ type ToolResult struct {
 	Error      error  `json:"error,omitempty"`
 }
 
+// BuiltinTools contains the definitions of built-in tools
 // Internal tool definitions for file and command operations
 var BuiltinTools = []Tool{
 	{
