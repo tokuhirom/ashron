@@ -27,9 +27,10 @@ type APIConfig struct {
 }
 
 type ToolsConfig struct {
-	AutoApproveTools []string      `mapstructure:"auto_approve_tools"`
-	MaxOutputSize    int           `mapstructure:"max_output_size"`
-	CommandTimeout   time.Duration `mapstructure:"command_timeout"`
+	AutoApproveTools    []string      `mapstructure:"auto_approve_tools"`
+	AutoApproveCommands []string      `mapstructure:"auto_approve_commands"`
+	MaxOutputSize       int           `mapstructure:"max_output_size"`
+	CommandTimeout      time.Duration `mapstructure:"command_timeout"`
 }
 
 type ContextConfig struct {
@@ -96,6 +97,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Tools defaults
 	v.SetDefault("tools.auto_approve_tools", []string{"read_file", "list_directory", "list_tools", "git_ls_files", "git_grep"})
+	v.SetDefault("tools.auto_approve_commands", []string{})
 	v.SetDefault("tools.max_output_size", 50000)
 	v.SetDefault("tools.command_timeout", 10*time.Minute)
 
@@ -163,6 +165,8 @@ tools:
     - list_tools
     - git_ls_files
     - git_grep
+  auto_approve_commands:
+    - /^git add .*$/
   max_output_size: 50000  # Maximum bytes for command output
   command_timeout: 10m
 

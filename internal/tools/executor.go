@@ -46,6 +46,7 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		slog.String("id", toolCall.ID))
 
 	// Parse arguments
+	// TODO: don't parse here. parse it in the each tool function
 	var args map[string]interface{}
 	if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
 		slog.Error("Failed to parse tool arguments",
@@ -187,6 +188,11 @@ func WriteFile(_ *config.ToolsConfig, toolCallID string, args map[string]interfa
 
 	result.Output = fmt.Sprintf("Successfully wrote %d bytes to %s", len(content), path)
 	return result
+}
+
+type ExecuteCommandArgs struct {
+	Command    string `json:"command"`
+	WorkingDir string `json:"working_dir,omitempty"`
 }
 
 func ExecuteCommand(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {

@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -471,7 +473,7 @@ func (m *SimpleModel) addUserMessage(content string) {
 func (m *SimpleModel) checkToolApproval() {
 	needsApproval := false
 	for _, tc := range m.pendingToolCalls {
-		if !m.isAutoApproved(tc.Function.Name) {
+		if !m.isAutoApproved(tc.Function.Name, tc.Function.Arguments) {
 			needsApproval = true
 			break
 		}
@@ -487,10 +489,46 @@ func (m *SimpleModel) checkToolApproval() {
 }
 
 // isAutoApproved checks if a tool is auto-approved
-func (m *SimpleModel) isAutoApproved(toolName string) bool {
+func (m *SimpleModel) isAutoApproved(toolName string, arguments string) bool {
 	for _, approved := range m.config.Tools.AutoApproveTools {
 		if approved == toolName {
 			return true
+		}
+	}
+	if toolName == "execute_command" {
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			slog.Error("Failed to parse tool arguments",
+				slog.Any("error", err),
+				slog.Any("arguments", arguments))
+			return false
+		}
+
+		for _, cmd := range m.config.Tools.AutoApproveCommands {
+			if strings.HasPrefix(cmd, "/") && strings.HasSuffix(cmd, "/") {
+				// match '/git add .*/' style. regexp match is required.
+				pattern := strings.TrimPrefix(strings.TrimSuffix(cmd, "/"), "/")
+				matched, err := regexp.MatchString(pattern, args.Command)
+				if err != nil {
+					slog.Error("Invalid regex in auto-approve command",
+						slog.Any("error", err),
+						slog.String("pattern", pattern))
+					continue
+				}
+				if matched {
+					slog.Debug("Command matched auto-approve command(regexp)",
+						slog.String("pattern", pattern),
+						slog.String("command", args.Command))
+					return true
+				}
+			} else {
+				if cmd == args.Command {
+					slog.Debug("Command matched auto-approve command(strict)",
+						slog.String("pattern", cmd),
+						slog.String("command", args.Command))
+					return true
+				}
+			}
 		}
 	}
 	return false
