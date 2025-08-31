@@ -18,13 +18,20 @@ import (
 
 // Executor handles tool execution
 type Executor struct {
-	config *config.ToolsConfig
+	config         *config.ToolsConfig
+	toolInfoByName map[string]ToolInfo
 }
 
 // NewExecutor creates a new tool executor
 func NewExecutor(cfg *config.ToolsConfig) *Executor {
+	toolInfoByName := make(map[string]ToolInfo)
+	for _, tool := range GetAllTools() {
+		toolInfoByName[tool.Name] = tool
+	}
+
 	return &Executor{
-		config: cfg,
+		config:         cfg,
+		toolInfoByName: toolInfoByName,
 	}
 }
 
@@ -49,26 +56,16 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		return result
 	}
 
-	slog.Debug("Tool arguments parsed", "tool", toolCall.Function.Name, "args", args)
-
 	// Execute based on function name
-	switch toolCall.Function.Name {
-	case "read_file":
-		result = e.readFile(toolCall.ID, args)
-	case "write_file":
-		result = e.writeFile(toolCall.ID, args)
-	case "execute_command":
-		result = e.executeCommand(toolCall.ID, args)
-	case "list_directory":
-		result = e.listDirectory(toolCall.ID, args)
-	case "list_tools":
-		result = e.listTools(toolCall.ID, args)
-	case "git_grep":
-		result = e.gitGrep(toolCall.ID, args)
-	case "git_ls_files":
-		result = e.gitLsFiles(toolCall.ID, args)
-	default:
-		slog.Error("Unknown tool requested", "tool", toolCall.Function.Name)
+	if tool, ok := e.toolInfoByName[toolCall.Function.Name]; ok {
+		slog.Debug("Found tool info",
+			slog.String("tool", tool.Name),
+			slog.Any("args", args))
+		result = tool.callback(e.config, toolCall.ID, args)
+	} else {
+		slog.Warn("Tool not found in tool info list",
+			slog.String("tool", toolCall.Function.Name),
+			slog.Any("args", args))
 		result.Error = fmt.Errorf("unknown tool: %s", toolCall.Function.Name)
 		result.Output = fmt.Sprintf("Error: Unknown tool '%s'", toolCall.Function.Name)
 	}
@@ -77,21 +74,17 @@ func (e *Executor) Execute(toolCall api.ToolCall) api.ToolResult {
 		slog.Error("Tool execution failed",
 			slog.String("tool", toolCall.Function.Name),
 			slog.Any("error", result.Error))
-	} else if toolCall.Function.Name != "read_file" {
-		// For read_file, we already logged with truncation above
-		slog.Info("Tool execution completed",
-			slog.String("tool", toolCall.Function.Name),
-			slog.Int("outputLength", len(result.Output)))
 	}
 
 	return result
 }
 
-// readFile reads the contents of a file
-func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.ToolResult {
+func ReadFile(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
+
+	// TODO: support read offset
 
 	path, ok := args["path"].(string)
 	if !ok {
@@ -121,7 +114,7 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 	// Limit file size
 	limited := &io.LimitedReader{
 		R: file,
-		N: int64(e.config.MaxOutputSize),
+		N: int64(config.MaxOutputSize),
 	}
 
 	content, err := io.ReadAll(limited)
@@ -133,7 +126,7 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 
 	result.Output = string(content)
 	if limited.N == 0 {
-		result.Output += fmt.Sprintf("\n\n[File truncated at %d bytes]", e.config.MaxOutputSize)
+		result.Output += fmt.Sprintf("\n\n[File truncated at %d bytes]", config.MaxOutputSize)
 	}
 
 	// Log with truncated content for readability
@@ -155,8 +148,7 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 	return result
 }
 
-// writeFile writes content to a file
-func (e *Executor) writeFile(toolCallID string, args map[string]interface{}) api.ToolResult {
+func WriteFile(_ *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
@@ -197,8 +189,7 @@ func (e *Executor) writeFile(toolCallID string, args map[string]interface{}) api
 	return result
 }
 
-// executeCommand runs a shell command
-func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}) api.ToolResult {
+func ExecuteCommand(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
@@ -226,8 +217,7 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 	}
 
 	// Set timeout
-	timeout := time.Duration(e.config.CommandTimeout) * time.Second
-	timer := time.NewTimer(timeout)
+	timer := time.NewTimer(config.CommandTimeout)
 	defer timer.Stop()
 
 	// Run command
@@ -246,9 +236,9 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 	select {
 	case out := <-output:
 		// Limit output size
-		if len(out) > e.config.MaxOutputSize {
-			out = out[:e.config.MaxOutputSize]
-			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
+		if len(out) > config.MaxOutputSize {
+			out = out[:config.MaxOutputSize]
+			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", config.MaxOutputSize))...)
 		}
 		result.Output = string(out)
 
@@ -257,15 +247,15 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 			slog.String("command", command),
 			slog.String("output", result.Output))
 
-		// Don't send individual command notifications - the main completion notification handles it
+		return result
 
 	case err := <-errChan:
 		// Also get the output even when command fails
 		select {
 		case out := <-output:
-			if len(out) > e.config.MaxOutputSize {
-				out = out[:e.config.MaxOutputSize]
-				out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
+			if len(out) > config.MaxOutputSize {
+				out = out[:config.MaxOutputSize]
+				out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", config.MaxOutputSize))...)
 			}
 			result.Output = string(out)
 			if result.Output == "" {
@@ -282,7 +272,7 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 			slog.String("error", err.Error()),
 			slog.String("output", result.Output))
 
-		// Don't send individual command notifications - the main completion notification handles it
+		return result
 
 	case <-timer.C:
 		// Kill the process on timeout
@@ -293,22 +283,19 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 					slog.Any("error", err))
 			}
 		}
-		result.Error = fmt.Errorf("command timed out after %v", timeout)
-		result.Output = fmt.Sprintf("Error: Command timed out after %v", timeout)
+		result.Error = fmt.Errorf("command timed out after %v", config.CommandTimeout)
+		result.Output = fmt.Sprintf("Error: Command timed out after %v", config.CommandTimeout)
 
 		// Log the timeout
 		slog.Error("Command execution timed out",
 			slog.String("command", command),
-			slog.Duration("timeout", timeout))
+			slog.Duration("timeout", config.CommandTimeout))
 
-		// Don't send individual command notifications - the main completion notification handles it
+		return result
 	}
-
-	return result
 }
 
-// listDirectory lists files in a directory
-func (e *Executor) listDirectory(toolCallID string, args map[string]interface{}) api.ToolResult {
+func ListDirectory(_ *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
@@ -359,39 +346,7 @@ func (e *Executor) listDirectory(toolCallID string, args map[string]interface{})
 	return result
 }
 
-// listTools lists all available tools
-func (e *Executor) listTools(toolCallID string, args map[string]interface{}) api.ToolResult {
-	result := api.ToolResult{
-		ToolCallID: toolCallID,
-	}
-
-	// Check if JSON format is requested
-	format := ""
-	if f, ok := args["format"].(string); ok {
-		format = f
-	}
-
-	var output string
-	var err error
-
-	if format == "json" {
-		output, err = ListToolsJSON()
-	} else {
-		output, err = ListTools()
-	}
-
-	if err != nil {
-		result.Error = err
-		result.Output = fmt.Sprintf("Error listing tools: %v", err)
-		return result
-	}
-
-	result.Output = output
-	return result
-}
-
-// gitGrep executes git grep command
-func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.ToolResult {
+func GitGrep(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
@@ -436,7 +391,7 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 	cmd := exec.Command("git", cmdArgs...)
 
 	// Set timeout
-	timeout := time.Duration(e.config.CommandTimeout) * time.Second
+	timeout := time.Duration(config.CommandTimeout) * time.Second
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
@@ -462,9 +417,9 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 	select {
 	case out := <-output:
 		// Limit output size
-		if len(out) > e.config.MaxOutputSize {
-			out = out[:e.config.MaxOutputSize]
-			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
+		if len(out) > config.MaxOutputSize {
+			out = out[:config.MaxOutputSize]
+			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", config.MaxOutputSize))...)
 		}
 		result.Output = string(out)
 		slog.Info("git grep completed", "outputLength", len(out))
@@ -490,8 +445,7 @@ func (e *Executor) gitGrep(toolCallID string, args map[string]interface{}) api.T
 	return result
 }
 
-// gitLsFiles executes git ls-files command
-func (e *Executor) gitLsFiles(toolCallID string, args map[string]interface{}) api.ToolResult {
+func GitLsFiles(config *config.ToolsConfig, toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
 	}
@@ -552,7 +506,7 @@ func (e *Executor) gitLsFiles(toolCallID string, args map[string]interface{}) ap
 	cmd := exec.Command("git", cmdArgs...)
 
 	// Set timeout
-	timeout := time.Duration(e.config.CommandTimeout) * time.Second
+	timeout := time.Duration(config.CommandTimeout) * time.Second
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
@@ -577,9 +531,9 @@ func (e *Executor) gitLsFiles(toolCallID string, args map[string]interface{}) ap
 	select {
 	case out := <-output:
 		// Limit output size
-		if len(out) > e.config.MaxOutputSize {
-			out = out[:e.config.MaxOutputSize]
-			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", e.config.MaxOutputSize))...)
+		if len(out) > config.MaxOutputSize {
+			out = out[:config.MaxOutputSize]
+			out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", config.MaxOutputSize))...)
 		}
 		result.Output = string(out)
 		if result.Output == "" {

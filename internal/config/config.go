@@ -27,9 +27,9 @@ type APIConfig struct {
 }
 
 type ToolsConfig struct {
-	AutoApprove    []string `mapstructure:"auto_approve"`
-	MaxOutputSize  int      `mapstructure:"max_output_size"`
-	CommandTimeout int      `mapstructure:"command_timeout"`
+	AutoApprove    []string      `mapstructure:"auto_approve"`
+	MaxOutputSize  int           `mapstructure:"max_output_size"`
+	CommandTimeout time.Duration `mapstructure:"command_timeout"`
 }
 
 type ContextConfig struct {
@@ -97,7 +97,7 @@ func setDefaults(v *viper.Viper) {
 	// Tools defaults
 	v.SetDefault("tools.auto_approve", []string{"read_file", "list_directory"})
 	v.SetDefault("tools.max_output_size", 50000)
-	v.SetDefault("tools.command_timeout", 30)
+	v.SetDefault("tools.command_timeout", 10*time.Minute)
 
 	// Context defaults
 	v.SetDefault("context.max_messages", 50)
@@ -162,7 +162,7 @@ tools:
     - list_directory
     - get_working_directory
   max_output_size: 50000  # Maximum bytes for command output
-  command_timeout: 30     # Seconds
+  command_timeout: 10m
 
 # Context Management
 context:

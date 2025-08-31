@@ -7,9 +7,10 @@ import (
 
 func TestListTools(t *testing.T) {
 	// Test text format
-	output, err := ListTools()
+	var r error = nil
+	output, err := FormatAsText(AllTools), r
 	if err != nil {
-		t.Fatalf("ListTools() returned error: %v", err)
+		t.Fatalf("listToolsText() returned error: %v", err)
 	}
 
 	// Check that output contains expected tools
@@ -37,9 +38,9 @@ func TestListTools(t *testing.T) {
 
 func TestListToolsJSON(t *testing.T) {
 	// Test JSON format
-	output, err := ListToolsJSON()
+	output, err := FormatAsJSON(AllTools)
 	if err != nil {
-		t.Fatalf("ListToolsJSON() returned error: %v", err)
+		t.Fatalf("listToolsJSON() returned error: %v", err)
 	}
 
 	// Basic JSON structure check

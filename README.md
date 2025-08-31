@@ -79,9 +79,7 @@ tools:
     - read_file
     - list_directory
   max_output_size: 50000
-  command_timeout: 30
-  enable_file_ops: true
-  enable_command_exec: true
+  command_timeout: 10m
 
 # Context Management
 context:
