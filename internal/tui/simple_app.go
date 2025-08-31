@@ -488,7 +488,7 @@ func (m *SimpleModel) checkToolApproval() {
 
 // isAutoApproved checks if a tool is auto-approved
 func (m *SimpleModel) isAutoApproved(toolName string) bool {
-	for _, approved := range m.config.Tools.AutoApprove {
+	for _, approved := range m.config.Tools.AutoApproveTools {
 		if approved == toolName {
 			return true
 		}

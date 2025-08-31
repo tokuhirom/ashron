@@ -75,7 +75,7 @@ api:
 
 # Tools Configuration
 tools:
-  auto_approve:
+  auto_approve_tools:
     - read_file
     - list_directory
   max_output_size: 50000
