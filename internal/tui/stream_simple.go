@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tokuhirom/ashron/internal/tools"
 
 	"github.com/tokuhirom/ashron/internal/api"
 )
@@ -78,8 +79,8 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 
 		// Stream the response
 		ctx := context.Background()
-		slog.Debug("Requesting streaming completion", "messages", len(m.messages), "tools", len(api.BuiltinTools))
-		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, api.BuiltinTools)
+		slog.Debug("Requesting streaming completion", "messages", len(m.messages), "tools", len(tools.BuiltinTools))
+		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, tools.BuiltinTools)
 		if err != nil {
 			slog.Error("Failed to start streaming", "error", err)
 			return errorMsg{error: err}

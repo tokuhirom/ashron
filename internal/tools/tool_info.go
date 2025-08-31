@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"encoding/json"
+
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
 )
@@ -95,4 +97,192 @@ func GetAllTools() []ToolInfo {
 			callback: GitLsFiles,
 		},
 	}
+}
+
+// BuiltinTools contains the definitions of built-in tools
+// Internal tool definitions for file and command operations
+var BuiltinTools = []api.Tool{
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "read_file",
+			Description: "Read the contents of a file",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"description": "The file path to read"
+					}
+				},
+				"required": ["path"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "write_file",
+			Description: "Write content to a file",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"description": "The file path to write"
+					},
+					"content": {
+						"type": "string",
+						"description": "The content to write"
+					}
+				},
+				"required": ["path", "content"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "execute_command",
+			Description: "Execute a shell command",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"command": {
+						"type": "string",
+						"description": "The command to execute"
+					},
+					"working_dir": {
+						"type": "string",
+						"description": "Working directory for the command"
+					}
+				},
+				"required": ["command"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "list_directory",
+			Description: "List files in a directory",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"description": "The directory path to list"
+					}
+				},
+				"required": ["path"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "list_tools",
+			Description: "List all available tools and their descriptions",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"format": {
+						"type": "string",
+						"description": "Output format: 'text' (default) or 'json'"
+					}
+				},
+				"required": []
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "git_grep",
+			Description: "Search for a pattern in git repository files",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"pattern": {
+						"type": "string",
+						"description": "The pattern to search for"
+					},
+					"path": {
+						"type": "string",
+						"description": "Limit search to specific path or file pattern"
+					},
+					"case_insensitive": {
+						"type": "boolean",
+						"description": "Perform case-insensitive search"
+					},
+					"line_number": {
+						"type": "boolean",
+						"description": "Show line numbers in output"
+					},
+					"count": {
+						"type": "boolean",
+						"description": "Show only count of matching lines"
+					}
+				},
+				"required": ["pattern"]
+			}`),
+		},
+	},
+	{
+		Type: "function",
+		Function: api.FunctionDef{
+			Name:        "git_ls_files",
+			Description: "List files in git repository",
+			Parameters: json.RawMessage(`{
+				"type": "object",
+				"properties": {
+					"cached": {
+						"type": "boolean",
+						"description": "Show cached files"
+					},
+					"deleted": {
+						"type": "boolean",
+						"description": "Show deleted files"
+					},
+					"modified": {
+						"type": "boolean",
+						"description": "Show modified files"
+					},
+					"others": {
+						"type": "boolean",
+						"description": "Show other (untracked) files"
+					},
+					"ignored": {
+						"type": "boolean",
+						"description": "Show ignored files"
+					},
+					"stage": {
+						"type": "boolean",
+						"description": "Show staged contents' object name"
+					},
+					"unmerged": {
+						"type": "boolean",
+						"description": "Show unmerged files"
+					},
+					"killed": {
+						"type": "boolean",
+						"description": "Show files that git checkout would overwrite"
+					},
+					"exclude_standard": {
+						"type": "boolean",
+						"description": "Use standard git exclusions"
+					},
+					"full_name": {
+						"type": "boolean",
+						"description": "Show full path from repository root"
+					},
+					"path": {
+						"type": "string",
+						"description": "Limit to specific path or file pattern"
+					}
+				},
+				"required": []
+			}`),
+		},
+	},
 }
