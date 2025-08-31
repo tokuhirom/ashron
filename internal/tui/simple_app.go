@@ -483,7 +483,7 @@ func (m *SimpleModel) checkToolApproval() {
 	if needsApproval {
 		m.waitingForApproval = true
 		m.loading = false
-		m.statusMsg = "Tools require approval. Press TAB to approve."
+		m.statusMsg = "Tools require approval. Press [y] to approve."
 	} else {
 		m.approvePendingTools()
 	}
