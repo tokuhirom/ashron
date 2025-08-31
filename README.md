@@ -73,13 +73,6 @@ api:
   max_tokens: 4096
   temperature: 0.7
 
-# UI Configuration
-ui:
-  theme: dark
-  enable_syntax_highlight: true
-  enable_markdown: true
-  scrollback_lines: 1000
-
 # Tools Configuration
 tools:
   auto_approve:

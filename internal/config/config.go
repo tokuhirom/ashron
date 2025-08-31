@@ -11,7 +11,6 @@ import (
 
 type Config struct {
 	API      APIConfig     `mapstructure:"api"`
-	UI       UIConfig      `mapstructure:"ui"`
 	Tools    ToolsConfig   `mapstructure:"tools"`
 	Context  ContextConfig `mapstructure:"context"`
 	Provider string        `mapstructure:"provider"`
@@ -24,13 +23,6 @@ type APIConfig struct {
 	MaxTokens   int           `mapstructure:"max_tokens"`
 	Temperature float32       `mapstructure:"temperature"`
 	Timeout     time.Duration `mapstructure:"timeout"`
-}
-
-type UIConfig struct {
-	Theme                 string `mapstructure:"theme"`
-	EnableSyntaxHighlight bool   `mapstructure:"enable_syntax_highlight"`
-	EnableMarkdown        bool   `mapstructure:"enable_markdown"`
-	ScrollbackLines       int    `mapstructure:"scrollback_lines"`
 }
 
 type ToolsConfig struct {
@@ -100,12 +92,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("api.temperature", 0.7)
 	v.SetDefault("api.timeout", 60) // 60 seconds default
 
-	// UI defaults
-	v.SetDefault("ui.theme", "dark")
-	v.SetDefault("ui.enable_syntax_highlight", true)
-	v.SetDefault("ui.enable_markdown", true)
-	v.SetDefault("ui.scrollback_lines", 1000)
-
 	// Tools defaults
 	v.SetDefault("tools.auto_approve", []string{"read_file", "list_directory"})
 	v.SetDefault("tools.max_output_size", 50000)
@@ -167,13 +153,6 @@ api:
   max_tokens: 4096
   temperature: 0.7
   timeout: 60  # API request timeout in seconds
-
-# UI Configuration
-ui:
-  theme: dark
-  enable_syntax_highlight: true
-  enable_markdown: true
-  scrollback_lines: 1000
 
 # Tools Configuration
 tools:
