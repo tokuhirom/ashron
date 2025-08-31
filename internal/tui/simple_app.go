@@ -528,7 +528,7 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 	rootPath := "."
 
 	// Generate AGENTS.md
-	content, err := tools.GenerateAgentsMD(rootPath)
+	content, err := agentsmd.GenerateAgentsMD(rootPath)
 	if err != nil {
 		errMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
