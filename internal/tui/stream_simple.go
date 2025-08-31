@@ -79,8 +79,11 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 
 		// Stream the response
 		ctx := context.Background()
-		slog.Debug("Requesting streaming completion", "messages", len(m.messages), "tools", len(tools.BuiltinTools))
-		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, tools.BuiltinTools)
+		builtinTools := tools.GetBuiltinTools()
+		slog.Debug("Requesting streaming completion",
+			slog.Int("messages", len(m.messages)),
+			slog.Int("tools", len(builtinTools)))
+		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, builtinTools)
 		if err != nil {
 			slog.Error("Failed to start streaming", "error", err)
 			return errorMsg{error: err}

@@ -99,9 +99,9 @@ func GetAllTools() []ToolInfo {
 	}
 }
 
-// BuiltinTools contains the definitions of built-in tools
+// builtinTools contains the definitions of built-in tools
 // Internal tool definitions for file and command operations
-var BuiltinTools = []api.Tool{
+var builtinTools = []api.Tool{
 	{
 		Type: "function",
 		Function: api.FunctionDef{
@@ -285,4 +285,8 @@ var BuiltinTools = []api.Tool{
 			}`),
 		},
 	},
+}
+
+func GetBuiltinTools() []api.Tool {
+	return builtinTools
 }
