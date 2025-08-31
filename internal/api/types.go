@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -38,9 +37,20 @@ type Tool struct {
 
 // FunctionDef defines a function that can be called
 type FunctionDef struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Parameters  FunctionParameters `json:"parameters"`
+}
+
+type FunctionParameters struct {
+	Type       string                      `json:"type"`
+	Properties map[string]FunctionProperty `json:"properties"`
+	Required   []string                    `json:"required"`
+}
+
+type FunctionProperty struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 // ToolCall represents a function call request from the model

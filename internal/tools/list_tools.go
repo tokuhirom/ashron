@@ -51,17 +51,17 @@ func FormatAsText(tools []ToolInfo) string {
 		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, tool.Name))
 		sb.WriteString(fmt.Sprintf("   Description: %s\n", tool.Description))
 
-		if len(tool.Parameters) > 0 {
+		if len(tool.Parameters.Properties) > 0 {
 			sb.WriteString("   Parameters:\n")
-			for param, desc := range tool.Parameters {
+			for name, prop := range tool.Parameters.Properties {
 				required := ""
-				for _, req := range tool.Required {
-					if req == param {
+				for _, req := range tool.Parameters.Required {
+					if req == name {
 						required = " (required)"
 						break
 					}
 				}
-				sb.WriteString(fmt.Sprintf("     - %s: %s%s\n", param, desc, required))
+				sb.WriteString(fmt.Sprintf("     - %s: %s%s\n", name, prop.Description, required))
 			}
 		} else {
 			sb.WriteString("   Parameters: None\n")
