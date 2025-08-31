@@ -163,8 +163,6 @@ tools:
     - get_working_directory
   max_output_size: 50000  # Maximum bytes for command output
   command_timeout: 30     # Seconds
-  enable_file_ops: true
-  enable_command_exec: true
 
 # Context Management
 context:
