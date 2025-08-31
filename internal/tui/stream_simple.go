@@ -308,7 +308,7 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 
 			// Truncate long output for display
 			lines := strings.Split(result.Output, "\n")
-			maxLines := 10
+			maxLines := 20
 			if len(lines) > maxLines {
 				displayOutput := strings.Join(lines[:maxLines], "\n")
 				output.WriteString(displayOutput)
