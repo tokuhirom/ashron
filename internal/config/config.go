@@ -37,7 +37,6 @@ type ToolsConfig struct {
 	AutoApprove    []string `mapstructure:"auto_approve"`
 	MaxOutputSize  int      `mapstructure:"max_output_size"`
 	CommandTimeout int      `mapstructure:"command_timeout"`
-	EnableFileOps  bool     `mapstructure:"enable_file_ops"`
 }
 
 type ContextConfig struct {

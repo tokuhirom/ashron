@@ -93,12 +93,6 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 		ToolCallID: toolCallID,
 	}
 
-	if !e.config.EnableFileOps {
-		result.Error = fmt.Errorf("file operations are disabled")
-		result.Output = "Error: File operations are disabled in configuration"
-		return result
-	}
-
 	path, ok := args["path"].(string)
 	if !ok {
 		result.Error = fmt.Errorf("missing or invalid 'path' argument")
@@ -165,12 +159,6 @@ func (e *Executor) readFile(toolCallID string, args map[string]interface{}) api.
 func (e *Executor) writeFile(toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
-	}
-
-	if !e.config.EnableFileOps {
-		result.Error = fmt.Errorf("file operations are disabled")
-		result.Output = "Error: File operations are disabled in configuration"
-		return result
 	}
 
 	path, ok := args["path"].(string)
@@ -323,12 +311,6 @@ func (e *Executor) executeCommand(toolCallID string, args map[string]interface{}
 func (e *Executor) listDirectory(toolCallID string, args map[string]interface{}) api.ToolResult {
 	result := api.ToolResult{
 		ToolCallID: toolCallID,
-	}
-
-	if !e.config.EnableFileOps {
-		result.Error = fmt.Errorf("file operations are disabled")
-		result.Output = "Error: File operations are disabled in configuration"
-		return result
 	}
 
 	path, ok := args["path"].(string)
