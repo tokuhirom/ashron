@@ -277,6 +277,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.pendingToolCalls) > 0 {
 			m.checkToolApproval()
 			if m.waitingForApproval {
+				m.viewport.GotoBottom() // tweaks
 				return m, nil
 			}
 			// Auto-approve and execute
@@ -605,6 +606,7 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 	previewLines := strings.Split(previewDisplay, "\n")
 	m.displayContent = append(m.displayContent, previewLines...)
 	m.displayContent = append(m.displayContent, "")
+	m.viewport.GotoBottom()
 
 	return nil
 }
