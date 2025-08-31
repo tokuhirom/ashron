@@ -70,7 +70,6 @@ provider: openai
 api:
   base_url: https://api.openai.com/v1
   model: gpt-4-turbo-preview
-  max_tokens: 4096
   temperature: 0.7
 
 # Tools Configuration
@@ -84,7 +83,7 @@ tools:
 # Context Management
 context:
   max_messages: 50
-  max_tokens: 100000
+  max_tokens: 65535
   compaction_ratio: 0.5
   auto_compact: true
 ```

@@ -21,7 +21,6 @@ type APIConfig struct {
 	BaseURL     string        `mapstructure:"base_url"`
 	APIKey      string        `mapstructure:"api_key"`
 	Model       string        `mapstructure:"model"`
-	MaxTokens   int           `mapstructure:"max_tokens"`
 	Temperature float32       `mapstructure:"temperature"`
 	Timeout     time.Duration `mapstructure:"timeout"`
 }
@@ -91,7 +90,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("provider", "openai")
 	v.SetDefault("api.base_url", "https://api.openai.com/v1")
 	v.SetDefault("api.model", "gpt-4-turbo-preview")
-	v.SetDefault("api.max_tokens", 4096)
 	v.SetDefault("api.temperature", 0.7)
 	v.SetDefault("api.timeout", 60) // 60 seconds default
 
@@ -103,7 +101,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Context defaults
 	v.SetDefault("context.max_messages", 50)
-	v.SetDefault("context.max_tokens", 100000)
+	v.SetDefault("context.max_tokens", 65535)
 	v.SetDefault("context.compaction_ratio", 0.5)
 	v.SetDefault("context.auto_compact", true)
 }
@@ -152,7 +150,6 @@ api:
   # Set your API key here or use OPENAI_API_KEY environment variable
   # api_key: YOUR_API_KEY_HERE
   model: gpt-4-turbo-preview
-  max_tokens: 4096
   temperature: 0.7
   timeout: 60  # API request timeout in seconds
 
@@ -173,7 +170,7 @@ tools:
 # Context Management
 context:
   max_messages: 50
-  max_tokens: 100000
+  max_tokens: 65535
   compaction_ratio: 0.5  # Compact when context uses more than 50 percent of max tokens
   auto_compact: true
 `

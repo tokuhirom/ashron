@@ -17,14 +17,16 @@ import (
 
 // Client handles communication with the OpenAI-compatible API
 type Client struct {
-	config     *config.APIConfig
+	apiConfig     *config.APIConfig
+	contextConfig *config.ContextConfig
+
 	httpClient *http.Client
 	baseURL    string
 }
 
 // NewClient creates a new API client
-func NewClient(cfg *config.APIConfig) *Client {
-	timeout := cfg.Timeout
+func NewClient(apiConfig *config.APIConfig, contextConfig *config.ContextConfig) *Client {
+	timeout := apiConfig.Timeout
 	if timeout == 0 {
 		timeout = 5 * time.Minute // Default value
 	}
@@ -33,11 +35,12 @@ func NewClient(cfg *config.APIConfig) *Client {
 		slog.Duration("timeout", timeout))
 
 	return &Client{
-		config: cfg,
+		apiConfig:     apiConfig,
+		contextConfig: contextConfig,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		baseURL: strings.TrimSuffix(cfg.BaseURL, "/"),
+		baseURL: strings.TrimSuffix(apiConfig.BaseURL, "/"),
 	}
 }
 
@@ -57,7 +60,7 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	req.Header.Set("Authorization", "Bearer "+c.apiConfig.APIKey)
 
 	return req, nil
 }
@@ -65,10 +68,10 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 // StreamChatCompletionWithTools sends a streaming request with tool support
 func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (<-chan StreamEvent, error) {
 	req := &ChatCompletionRequest{
-		Model:       c.config.Model,
+		Model:       c.apiConfig.Model,
 		Messages:    messages,
-		Temperature: c.config.Temperature,
-		MaxTokens:   c.config.MaxTokens,
+		Temperature: c.apiConfig.Temperature,
+		MaxTokens:   c.contextConfig.MaxTokens,
 		Tools:       tools,
 		Stream:      true,
 		StreamOptions: &StreamOptions{

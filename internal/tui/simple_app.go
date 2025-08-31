@@ -76,7 +76,7 @@ type SimpleModel struct {
 // NewSimpleModel creates a new simplified application model
 func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 	// Create API client
-	apiClient := api.NewClient(&cfg.API)
+	apiClient := api.NewClient(&cfg.API, &cfg.Context)
 
 	// Create a context manager
 	ctxMgr := contextmgr.NewManager(&cfg.Context)
@@ -444,7 +444,7 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
   Context Limit: %d tokens`,
 		m.config.Provider,
 		m.config.API.Model,
-		m.config.API.MaxTokens,
+		m.config.Context.MaxTokens,
 		m.config.API.Temperature,
 		m.config.API.Timeout,
 		m.config.Context.AutoCompact,
