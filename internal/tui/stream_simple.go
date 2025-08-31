@@ -26,6 +26,7 @@ type errorMsg struct {
 // StreamOutput represents output to be printed
 type StreamOutput struct {
 	Content string
+	Usage   *api.Usage
 }
 
 // StreamingMsg represents a message chunk during streaming
@@ -95,6 +96,7 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 	var output strings.Builder // Collects all output to print
 	var toolCalls []api.ToolCall
 	var chunkCount int
+	var usage *api.Usage
 	// Map to accumulate tool call arguments by index
 	toolCallArgs := make(map[int]*strings.Builder)
 	toolCallsByIndex := make(map[int]*api.ToolCall)
@@ -114,161 +116,172 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 			return errorMsg{error: event.Error}
 		}
 
-		if event.Data != nil && len(event.Data.Choices) > 0 {
-			choice := event.Data.Choices[0]
-			chunkCount++
-
-			// Handle content
-			if choice.Delta.Content != "" {
-				// Collect content for output
-				output.WriteString(choice.Delta.Content)
-				fullContent.WriteString(choice.Delta.Content)
-				slog.Debug("Received content chunk", "chunk", chunkCount, "contentLength", len(choice.Delta.Content), "totalLength", fullContent.Len())
-
-				// Update message history
-				if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
-					m.messages[len(m.messages)-1].Content = fullContent.String()
-				} else {
-					m.messages = append(m.messages, api.Message{
-						Role:    "assistant",
-						Content: fullContent.String(),
-					})
-				}
+		if event.Data != nil {
+			// Capture usage data if present
+			if event.Data.Usage != nil {
+				usage = event.Data.Usage
+				slog.Debug("Received usage data",
+					"promptTokens", usage.PromptTokens,
+					"completionTokens", usage.CompletionTokens,
+					"totalTokens", usage.TotalTokens)
 			}
 
-			// Handle tool calls - accumulate arguments properly
-			for i, deltaToolCall := range choice.Delta.ToolCalls {
-				// Determine the index for this tool call
-				idx := choice.Index*100 + i
+			if len(event.Data.Choices) > 0 {
+				choice := event.Data.Choices[0]
+				chunkCount++
 
-				if deltaToolCall.ID != "" {
-					// New tool call starting
-					tc := &api.ToolCall{
-						ID:   deltaToolCall.ID,
-						Type: deltaToolCall.Type,
-						Function: api.FunctionCall{
-							Name:      deltaToolCall.Function.Name,
-							Arguments: deltaToolCall.Function.Arguments,
-						},
-					}
-					toolCallsByIndex[idx] = tc
-					if deltaToolCall.Function.Arguments != "" {
-						if toolCallArgs[idx] == nil {
-							toolCallArgs[idx] = &strings.Builder{}
-						}
-						toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
-					}
-				} else if deltaToolCall.Function.Arguments != "" {
-					// Continuing existing tool call - append arguments
-					if _, exists := toolCallsByIndex[idx]; exists {
-						if toolCallArgs[idx] == nil {
-							toolCallArgs[idx] = &strings.Builder{}
-						}
-						toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
+				// Handle content
+				if choice.Delta.Content != "" {
+					// Collect content for output
+					output.WriteString(choice.Delta.Content)
+					fullContent.WriteString(choice.Delta.Content)
+					slog.Debug("Received content chunk", "chunk", chunkCount, "contentLength", len(choice.Delta.Content), "totalLength", fullContent.Len())
+
+					// Update message history
+					if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
+						m.messages[len(m.messages)-1].Content = fullContent.String()
 					} else {
-						// Try to find by function name if index doesn't work
-						for tidx, tc := range toolCallsByIndex {
-							if tc.Function.Name == deltaToolCall.Function.Name {
-								if toolCallArgs[tidx] == nil {
-									toolCallArgs[tidx] = &strings.Builder{}
+						m.messages = append(m.messages, api.Message{
+							Role:    "assistant",
+							Content: fullContent.String(),
+						})
+					}
+				}
+
+				// Handle tool calls - accumulate arguments properly
+				for i, deltaToolCall := range choice.Delta.ToolCalls {
+					// Determine the index for this tool call
+					idx := choice.Index*100 + i
+
+					if deltaToolCall.ID != "" {
+						// New tool call starting
+						tc := &api.ToolCall{
+							ID:   deltaToolCall.ID,
+							Type: deltaToolCall.Type,
+							Function: api.FunctionCall{
+								Name:      deltaToolCall.Function.Name,
+								Arguments: deltaToolCall.Function.Arguments,
+							},
+						}
+						toolCallsByIndex[idx] = tc
+						if deltaToolCall.Function.Arguments != "" {
+							if toolCallArgs[idx] == nil {
+								toolCallArgs[idx] = &strings.Builder{}
+							}
+							toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
+						}
+					} else if deltaToolCall.Function.Arguments != "" {
+						// Continuing existing tool call - append arguments
+						if _, exists := toolCallsByIndex[idx]; exists {
+							if toolCallArgs[idx] == nil {
+								toolCallArgs[idx] = &strings.Builder{}
+							}
+							toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
+						} else {
+							// Try to find by function name if index doesn't work
+							for tidx, tc := range toolCallsByIndex {
+								if tc.Function.Name == deltaToolCall.Function.Name {
+									if toolCallArgs[tidx] == nil {
+										toolCallArgs[tidx] = &strings.Builder{}
+									}
+									toolCallArgs[tidx].WriteString(deltaToolCall.Function.Arguments)
+									break
 								}
-								toolCallArgs[tidx].WriteString(deltaToolCall.Function.Arguments)
-								break
 							}
 						}
 					}
+
+					slog.Debug("Tool call delta",
+						"id", deltaToolCall.ID,
+						"name", deltaToolCall.Function.Name,
+						"args", deltaToolCall.Function.Arguments,
+						"index", idx)
 				}
 
-				slog.Debug("Tool call delta",
-					"id", deltaToolCall.ID,
-					"name", deltaToolCall.Function.Name,
-					"args", deltaToolCall.Function.Arguments,
-					"index", idx)
-			}
-
-			// Check if finished
-			if choice.FinishReason == "stop" || choice.FinishReason == "tool_calls" {
-				m.currentOperation = "Finalizing response"
-				// Add newlines after content if there was content
-				if fullContent.Len() > 0 {
-					output.WriteString("\n\n")
-				}
-
-				// Finalize tool calls with complete arguments
-				for idx, tc := range toolCallsByIndex {
-					if toolCallArgs[idx] != nil && toolCallArgs[idx].Len() > 0 {
-						tc.Function.Arguments = toolCallArgs[idx].String()
+				// Check if finished
+				if choice.FinishReason == "stop" || choice.FinishReason == "tool_calls" {
+					m.currentOperation = "Finalizing response"
+					// Add newlines after content if there was content
+					if fullContent.Len() > 0 {
+						output.WriteString("\n\n")
 					}
-					// Ensure we have valid arguments - if empty, use empty JSON object
-					if tc.Function.Arguments == "" {
-						tc.Function.Arguments = "{}"
-					}
-					toolCalls = append(toolCalls, *tc)
 
-					// Add tool call info to output with arguments
-					output.WriteString(lipgloss.NewStyle().
-						Background(lipgloss.Color("#2a2a2a")).
-						Foreground(lipgloss.Color("#FF7F50")).
-						Padding(0, 1).
-						Render(fmt.Sprintf("🔧 Calling %s", tc.Function.Name)))
-					output.WriteString("\n")
+					// Finalize tool calls with complete arguments
+					for idx, tc := range toolCallsByIndex {
+						if toolCallArgs[idx] != nil && toolCallArgs[idx].Len() > 0 {
+							tc.Function.Arguments = toolCallArgs[idx].String()
+						}
+						// Ensure we have valid arguments - if empty, use empty JSON object
+						if tc.Function.Arguments == "" {
+							tc.Function.Arguments = "{}"
+						}
+						toolCalls = append(toolCalls, *tc)
 
-					// Display arguments in a readable format
-					if tc.Function.Arguments != "" && tc.Function.Arguments != "{}" {
-						var args map[string]interface{}
-						if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
-							output.WriteString(lipgloss.NewStyle().
-								Foreground(lipgloss.Color("#626262")).
-								PaddingLeft(3).
-								Render("Arguments:"))
-							output.WriteString("\n")
-							for key, value := range args {
+						// Add tool call info to output with arguments
+						output.WriteString(lipgloss.NewStyle().
+							Background(lipgloss.Color("#2a2a2a")).
+							Foreground(lipgloss.Color("#FF7F50")).
+							Padding(0, 1).
+							Render(fmt.Sprintf("🔧 Calling %s", tc.Function.Name)))
+						output.WriteString("\n")
+
+						// Display arguments in a readable format
+						if tc.Function.Arguments != "" && tc.Function.Arguments != "{}" {
+							var args map[string]interface{}
+							if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
 								output.WriteString(lipgloss.NewStyle().
 									Foreground(lipgloss.Color("#626262")).
-									PaddingLeft(5).
-									Render(fmt.Sprintf("• %s: %v", key, value)))
+									PaddingLeft(3).
+									Render("Arguments:"))
 								output.WriteString("\n")
+								for key, value := range args {
+									output.WriteString(lipgloss.NewStyle().
+										Foreground(lipgloss.Color("#626262")).
+										PaddingLeft(5).
+										Render(fmt.Sprintf("• %s: %v", key, value)))
+									output.WriteString("\n")
+								}
 							}
 						}
+
+						slog.Debug("Finalized tool call",
+							"id", tc.ID,
+							"name", tc.Function.Name,
+							"args", tc.Function.Arguments)
 					}
 
-					slog.Debug("Finalized tool call",
-						"id", tc.ID,
-						"name", tc.Function.Name,
-						"args", tc.Function.Arguments)
-				}
+					slog.Info("Stream finished", "reason", choice.FinishReason, "chunks", chunkCount, "contentLength", fullContent.Len(), "toolCalls", len(toolCalls))
 
-				slog.Info("Stream finished", "reason", choice.FinishReason, "chunks", chunkCount, "contentLength", fullContent.Len(), "toolCalls", len(toolCalls))
-
-				// Update the complete message
-				if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
-					m.messages[len(m.messages)-1].Content = fullContent.String()
-					m.messages[len(m.messages)-1].ToolCalls = toolCalls
-				} else {
-					msg := api.Message{
-						Role:      "assistant",
-						Content:   fullContent.String(),
-						ToolCalls: toolCalls,
+					// Update the complete message
+					if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
+						m.messages[len(m.messages)-1].Content = fullContent.String()
+						m.messages[len(m.messages)-1].ToolCalls = toolCalls
+					} else {
+						msg := api.Message{
+							Role:      "assistant",
+							Content:   fullContent.String(),
+							ToolCalls: toolCalls,
+						}
+						m.messages = append(m.messages, msg)
 					}
-					m.messages = append(m.messages, msg)
+
+					// Store tool calls for processing
+					if len(toolCalls) > 0 {
+						m.pendingToolCalls = toolCalls
+					}
+
+					// Store the final content
+					m.currentMessage = fullContent.String()
+
+					// Return the complete output as a StreamOutput message
+					return StreamOutput{Content: output.String(), Usage: usage}
 				}
-
-				// Store tool calls for processing
-				if len(toolCalls) > 0 {
-					m.pendingToolCalls = toolCalls
-				}
-
-				// Store the final content
-				m.currentMessage = fullContent.String()
-
-				// Return the complete output as a StreamOutput message
-				return StreamOutput{Content: output.String()}
 			}
 		}
 	}
 
 	// Stream ended without a proper finish
-	return StreamOutput{Content: output.String()}
+	return StreamOutput{Content: output.String(), Usage: usage}
 }
 
 // executePendingTools executes approved tool calls (SimpleModel version)

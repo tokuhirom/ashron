@@ -66,6 +66,9 @@ type SimpleModel struct {
 
 	// Display content - stores all conversation output
 	displayContent []string
+
+	// Token usage tracking
+	currentUsage *api.Usage
 }
 
 // NewSimpleModel creates a new simplified application model
@@ -252,6 +255,11 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.statusMsg = "Ready"
 
+		// Update token usage if provided
+		if msg.Usage != nil {
+			m.currentUsage = msg.Usage
+		}
+
 		// Add output to display content
 		if msg.Content != "" {
 			// Split content by lines and add to display
@@ -370,6 +378,22 @@ func (m *SimpleModel) renderFooter() string {
 	} else {
 		b.WriteString(m.textarea.View())
 	}
+
+	// Display token usage if available
+	if m.currentUsage != nil {
+		b.WriteString("\n")
+		usageStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Italic(true)
+
+		usageText := fmt.Sprintf("📊 Tokens: Prompt: %d | Completion: %d | Total: %d",
+			m.currentUsage.PromptTokens,
+			m.currentUsage.CompletionTokens,
+			m.currentUsage.TotalTokens)
+
+		b.WriteString(usageStyle.Render(usageText))
+	}
+
 	return b.String()
 }
 

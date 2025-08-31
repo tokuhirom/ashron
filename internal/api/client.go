@@ -71,6 +71,9 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 		MaxTokens:   c.config.MaxTokens,
 		Tools:       tools,
 		Stream:      true,
+		StreamOptions: &StreamOptions{
+			IncludeUsage: true,
+		},
 	}
 
 	slog.Info("Sending streaming request",
