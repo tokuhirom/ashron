@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/charmbracelet/bubbles v0.21.0
+	github.com/charmbracelet/bubbles/v2 v2.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/gen2brain/beeep v0.11.2
