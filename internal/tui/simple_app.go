@@ -133,6 +133,11 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 10000
 	ta.SetHeight(3)
+	ta.Prompt = "❯ "
+	taStyles := ta.Styles()
+	taStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(primaryColor)
+	taStyles.Focused.Base = normalTextareaBorder
+	ta.SetStyles(taStyles)
 	ta.Focus()
 
 	sp := spinner.New()
@@ -582,6 +587,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Always update textarea so the user can type during loading
 	m.textarea, tiCmd = m.textarea.Update(msg)
 	cmds = append(cmds, tiCmd)
+	m.updateInputMode()
 	m.updateCompletionState()
 
 	return m, tea.Batch(cmds...)
@@ -660,6 +666,22 @@ func (m *SimpleModel) filteredModelNames(prefix string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// updateInputMode switches the textarea prompt and border to reflect whether the
+// user is typing a shell command (! prefix) or a normal message.
+func (m *SimpleModel) updateInputMode() {
+	s := m.textarea.Styles()
+	if strings.HasPrefix(m.textarea.Value(), "!") {
+		m.textarea.Prompt = "$ "
+		s.Focused.Prompt = lipgloss.NewStyle().Foreground(shellModeColor).Bold(true)
+		s.Focused.Base = shellTextareaBorder
+	} else {
+		m.textarea.Prompt = "❯ "
+		s.Focused.Prompt = lipgloss.NewStyle().Foreground(primaryColor)
+		s.Focused.Base = normalTextareaBorder
+	}
+	m.textarea.SetStyles(s)
 }
 
 // updateCompletionState updates the completion popup visibility based on textarea content.
