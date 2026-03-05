@@ -54,3 +54,23 @@ func GetSubagentLog(id string) (string, error) {
 	}
 	return mgr.GetLog(id)
 }
+
+// CancelAllRunningSubagents cancels and closes all currently running subagents.
+// Returns how many subagents were cancelled.
+func CancelAllRunningSubagents() int {
+	mgr := getSubagentManager()
+	if mgr == nil {
+		return 0
+	}
+	snaps := mgr.List()
+	cancelled := 0
+	for _, s := range snaps {
+		if s.Status != subagent.AgentStatusRunning {
+			continue
+		}
+		if err := mgr.Close(s.ID); err == nil {
+			cancelled++
+		}
+	}
+	return cancelled
+}

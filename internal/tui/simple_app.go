@@ -71,8 +71,9 @@ type SimpleModel struct {
 	currentMessage string
 
 	// Operation context for better error messages
-	currentOperation string
-	lastUserInput    string
+	currentOperation   string
+	operationStartedAt time.Time
+	lastUserInput      string
 
 	commandRegistry *CommandRegistry
 
@@ -393,6 +394,14 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 'c':
 				if m.loading {
 					m.cancelCurrentRequest()
+					cancelledSubagents := tools.CancelAllRunningSubagents()
+					if cancelledSubagents > 0 {
+						cancelMsg := lipgloss.NewStyle().
+							Foreground(lipgloss.Color("#FF7F50")).
+							Render(fmt.Sprintf("✗ Cancelled %d running subagent(s)", cancelledSubagents))
+						m.AddDisplayContent(cancelMsg, "")
+					}
+					m.statusMsg = "Cancelled all running operations"
 				} else {
 					return m, tea.Quit
 				}
@@ -490,6 +499,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle streaming output - add to display content
 		m.loading = false
 		m.statusMsg = "Ready"
+		m.currentOperation = ""
+		m.operationStartedAt = time.Time{}
 
 		// Update token usage if provided
 		if msg.Usage != nil {
@@ -544,9 +555,12 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if msg.hasMore {
 			m.currentOperation = "Processing tool results"
+			m.operationStartedAt = time.Now()
 			return m, m.continueConversation()
 		} else {
 			// All processing done - send notification
+			m.currentOperation = ""
+			m.operationStartedAt = time.Time{}
 			m.sendCompletionNotification()
 		}
 
@@ -556,6 +570,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.error
 		m.loading = false
 		m.statusMsg = "Error: " + msg.error.Error()
+		m.currentOperation = ""
+		m.operationStartedAt = time.Time{}
 
 		// Add error to display content
 		errorMessage := msg.error.Error()
@@ -745,7 +761,15 @@ func (m *SimpleModel) renderFooter() string {
 
 	// Status line above the textarea
 	if m.loading {
-		b.WriteString(m.spinner.View() + " Processing... (Esc to cancel)\n")
+		operation := m.currentOperation
+		if operation == "" {
+			operation = "Processing"
+		}
+		elapsed := ""
+		if !m.operationStartedAt.IsZero() {
+			elapsed = fmt.Sprintf(" [%s]", time.Since(m.operationStartedAt).Round(time.Second))
+		}
+		b.WriteString(m.spinner.View() + " " + operation + elapsed + " (Esc: cancel request, Ctrl+C: cancel all)\n")
 		for _, ag := range m.subagentSummary {
 			label := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#888888")).
@@ -1228,6 +1252,8 @@ func (m *SimpleModel) approvePendingTools() {
 	m.waitingForApproval = false
 	m.loading = true
 	m.statusMsg = "Executing tools..."
+	m.currentOperation = "Executing approved tools"
+	m.operationStartedAt = time.Now()
 }
 
 // cancelPendingTools cancels pending tool calls
@@ -1246,6 +1272,12 @@ func (m *SimpleModel) handleToolResult(msg toolExecutionMsg) {
 
 // continueConversation continues after tool execution
 func (m *SimpleModel) continueConversation() tea.Cmd {
+	if m.currentOperation == "" {
+		m.currentOperation = "Processing tool results"
+	}
+	if m.operationStartedAt.IsZero() {
+		m.operationStartedAt = time.Now()
+	}
 	return m.processMessage()
 }
 
