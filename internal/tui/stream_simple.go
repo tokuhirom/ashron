@@ -218,7 +218,18 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 					idx := deltaToolCall.Index
 
 					if deltaToolCall.ID != "" {
-						// New tool call starting - reset accumulator for this index
+						// New tool call starting.
+						//
+						// Some providers (e.g. GLM-4.7) include the complete arguments
+						// in this first delta AND repeat them in subsequent continuation
+						// deltas.  To avoid concatenating duplicates we do NOT write
+						// start-delta arguments into toolCallArgs here.
+						//
+						// tc.Function.Arguments holds the start-delta args as a fallback:
+						// if no continuation deltas arrive (provider sent everything
+						// up-front), finalization will use this value directly.
+						// If continuation deltas do arrive, their accumulated content
+						// replaces tc.Function.Arguments at finalization time.
 						tc := &api.ToolCall{
 							ID:   deltaToolCall.ID,
 							Type: deltaToolCall.Type,
@@ -228,12 +239,15 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 							},
 						}
 						toolCallsByIndex[idx] = tc
-						toolCallArgs[idx] = &strings.Builder{}
-						if deltaToolCall.Function.Arguments != "" {
-							toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
-						}
+						toolCallArgs[idx] = &strings.Builder{} // always start fresh
 					} else if deltaToolCall.Function.Arguments != "" {
-						// Continuing existing tool call - append arguments
+						// Continuation delta: append arguments to the accumulator.
+						// These are the chunks that build up the final arguments string.
+						// For providers like OpenAI the start delta has empty args and
+						// all content arrives here.  For providers like GLM-4.7 that
+						// repeat the full args in the continuation, only these chunks
+						// end up in toolCallArgs (start-delta args are kept separate in
+						// tc.Function.Arguments as a fallback).
 						if _, exists := toolCallsByIndex[idx]; exists {
 							if toolCallArgs[idx] == nil {
 								toolCallArgs[idx] = &strings.Builder{}
