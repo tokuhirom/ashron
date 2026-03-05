@@ -1,5 +1,24 @@
 # Changelog
 
+## [v2026.305.1](https://github.com/tokuhirom/ashron/compare/v2026.305.0...v2026.305.1) - 2026-03-05
+- Refactor config: provider/model hierarchy with /model switch command by @tokuhirom in https://github.com/tokuhirom/ashron/pull/27
+- Add command completion popup on / input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/31
+- Update dependency go to v1.26.0 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/29
+- Update actions/checkout action to v6 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/30
+- Add argument completion for /model command by @tokuhirom in https://github.com/tokuhirom/ashron/pull/32
+- feat: add OS sandboxing controls and yolo mode by @tokuhirom in https://github.com/tokuhirom/ashron/pull/33
+- chore(deps): update actions/create-github-app-token action to v2 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/34
+- feat: add subagent tools and runtime manager by @tokuhirom in https://github.com/tokuhirom/ashron/pull/35
+- Migrate to bubbletea/lipgloss/bubbles v2 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/37
+- refactor(config): replace viper with gopkg.in/yaml.v3 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/38
+- refactor: replace kingpin with kong for CLI argument parsing by @tokuhirom in https://github.com/tokuhirom/ashron/pull/39
+- fix(config): use os.UserConfigDir() for XDG-compliant config path by @tokuhirom in https://github.com/tokuhirom/ashron/pull/40
+- feat: add local skills discovery support by @tokuhirom in https://github.com/tokuhirom/ashron/pull/36
+- fix: error display truncation and XDG_CONFIG_HOME compliance by @tokuhirom in https://github.com/tokuhirom/ashron/pull/41
+- fix: use XDG_CONFIG_HOME or ~/.config on all platforms including macOS by @tokuhirom in https://github.com/tokuhirom/ashron/pull/42
+- fix: spinner not animating during loading by @tokuhirom in https://github.com/tokuhirom/ashron/pull/43
+- feat: enable mouse scroll for viewport by @tokuhirom in https://github.com/tokuhirom/ashron/pull/44
+
 ## [v2026.305.0](https://github.com/tokuhirom/ashron/commits/v2026.305.0) - 2026-03-05
 - Configure Renovate by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/1
 - Update actions/checkout action to v5 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/2
