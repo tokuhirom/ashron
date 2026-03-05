@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/alecthomas/kingpin/v2"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/tokuhirom/ashron/internal/config"
 	"github.com/tokuhirom/ashron/internal/logger"
 	"github.com/tokuhirom/ashron/internal/tui"
@@ -82,9 +82,7 @@ func main() {
 		log.Fatalf("Failed to create application: %v", err)
 	}
 
-	// Create the program without alt screen for streaming mode
-	p := tea.NewProgram(tuiModel,
-		tea.WithAltScreen())
+	p := tea.NewProgram(tuiModel)
 
 	// Run the program
 	if _, err := p.Run(); err != nil {

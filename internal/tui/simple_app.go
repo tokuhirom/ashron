@@ -9,11 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/gen2brain/beeep"
 	"github.com/tokuhirom/ashron/internal/agentsmd"
 
@@ -113,7 +113,7 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 	sp.Style = spinnerStyle
 
 	// Create viewport for conversation history
-	vp := viewport.New(80, 20) // Will be resized in Init
+	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
 	vp.MouseWheelEnabled = true
 
 	// Initialize session
@@ -216,8 +216,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.textarea.SetWidth(msg.Width - 2)
-		m.viewport.Width = msg.Width - 2
-		m.viewport.Height = msg.Height - 8
+		m.viewport.SetWidth(msg.Width - 2)
+		m.viewport.SetHeight(msg.Height - 8)
 
 	case tea.MouseMsg:
 		slog.Info("Mouse event",
@@ -225,11 +225,37 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd := m.viewport.Update(msg)
 		return m, cmd
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
+		// Ctrl+key shortcuts
+		if msg.Mod.Contains(tea.ModCtrl) {
+			switch msg.Code {
+			case 'p':
+				m.viewport.ScrollUp(1)
+				return m, nil
+			case 'n':
+				m.viewport.ScrollDown(1)
+				return m, nil
+			case 'c':
+				if m.loading {
+					m.loading = false
+					m.statusMsg = "Request cancelled"
+				} else {
+					return m, tea.Quit
+				}
+			case 'l':
+				m.viewport.GotoBottom()
+				m.statusMsg = "Screen cleared"
+				return m, nil
+			case 'j':
+				m.textarea.InsertString("\n")
+				return m, nil
+			}
+		}
+
 		// Intercept navigation keys when completion popup is visible
 		if m.showCompletion && !m.loading {
 			items := m.completionItems()
-			switch msg.Type {
+			switch msg.Code {
 			case tea.KeyUp:
 				if m.completionIndex > 0 {
 					m.completionIndex--
@@ -261,32 +287,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		switch msg.Type {
-		case tea.KeyCtrlP:
-			m.viewport.ScrollUp(1)
-			return m, nil
-
-		case tea.KeyCtrlN:
-			m.viewport.ScrollDown(1)
-			return m, nil
-
-		case tea.KeyCtrlC:
-			if m.loading {
-				m.loading = false
-				m.statusMsg = "Request cancelled"
-			} else {
-				return m, tea.Quit
-			}
-
-		case tea.KeyCtrlL:
-			m.viewport.GotoBottom()
-			m.statusMsg = "Screen cleared"
-			return m, nil
-
-		case tea.KeyCtrlJ:
-			m.textarea.InsertString("\n")
-			return m, nil
-
+		switch msg.Code {
 		case tea.KeyEnter:
 			// Send a message
 			input := m.textarea.Value()
@@ -295,15 +296,12 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if strings.HasPrefix(input, "/") {
 					return m, m.handleCommand(input)
 				}
-
-				// Send a chat message
 				return m, m.SendMessage(input)
 			}
-
-		case tea.KeyRunes:
+		default:
 			// Handle tool approval with y/n
-			if m.waitingForApproval {
-				switch string(msg.Runes) {
+			if m.waitingForApproval && msg.Text != "" {
+				switch msg.Text {
 				case "y", "Y":
 					m.approvePendingTools()
 					m.currentOperation = "Executing approved tools"
@@ -414,26 +412,32 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the entire UI with conversation history and input area
-func (m *SimpleModel) View() string {
+func (m *SimpleModel) View() tea.View {
 	if !m.ready {
-		return "\n  Initializing..."
+		v := tea.NewView("\n  Initializing...")
+		v.AltScreen = true
+		return v
 	}
 
 	footer := m.renderFooter()
 	completion := m.renderCompletion()
 
-	m.viewport.Height = m.height - lipgloss.Height(footer) - lipgloss.Height(completion) - 3
+	m.viewport.SetHeight(m.height - lipgloss.Height(footer) - lipgloss.Height(completion) - 3)
 	m.updateViewportContent()
 	viewportContent := m.viewport.View() + "\n\n"
 
 	slog.Info("Viewport content",
-		slog.Int("YOffset", m.viewport.YOffset))
+		slog.Int("YOffset", m.viewport.YOffset()))
 
-	return lipgloss.JoinVertical(
+	content := lipgloss.JoinVertical(
 		lipgloss.Top,
 		viewportContent,
 		completion,
 		footer)
+
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 // completionItems returns the current list of completion candidates based on textarea input.
