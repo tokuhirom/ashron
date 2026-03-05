@@ -127,6 +127,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 	vp.MouseWheelEnabled = true
 
 	isResume := sess != nil
+	availableSkills := skills.Discover()
 
 	// Initialize chat session
 	chatSession := &api.ChatSession{Messages: []api.Message{}}
@@ -146,6 +147,9 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 - Suggesting improvements
 
 You have access to tools for file operations and command execution. Always ask for approval before making changes unless the operation is pre-approved.`
+		if skillsPrompt := skills.MetadataPrompt(availableSkills); skillsPrompt != "" {
+			systemPrompt += "\n\n" + skillsPrompt
+		}
 		messages = append(messages, api.NewSystemMessage(systemPrompt))
 	}
 	chatSession.Messages = messages
@@ -185,7 +189,7 @@ You have access to tools for file operations and command execution. Always ask f
 		statusMsg:           "Ready",
 		ready:               true,
 		commandRegistry:     commandRegistry,
-		availableSkills:     skills.Discover(),
+		availableSkills:     availableSkills,
 		displayContent:      initDisplay,
 		sess:                sess,
 		isResume:            isResume,
