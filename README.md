@@ -209,6 +209,10 @@ Template variables:
 - `$ARGUMENTS` - all arguments joined by spaces
 - `$1` ... `$9` - positional arguments
 
+Arguments support shell-like quoting in slash commands, e.g.:
+
+- `/review "src/foo bar.go" security`
+
 ## Sandboxing
 
 `execute_command` uses an OS-specific sandbox in `tools.sandbox_mode: auto`.
