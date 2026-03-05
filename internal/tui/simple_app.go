@@ -1124,6 +1124,189 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 	return nil
 }
 
+func (m *SimpleModel) RenderStatus() tea.Cmd {
+	cwd, _ := os.Getwd()
+	sessionID := "(none)"
+	if m.sess != nil && m.sess.ID != "" {
+		sessionID = m.sess.ID
+	}
+
+	status := fmt.Sprintf(`Current Status:
+  Mode: %s
+  Model: %s (provider: %s)
+  Working Dir: %s
+  Session ID: %s
+  Sandbox Mode: %s
+  YOLO Mode: %v
+  Auto-Approve Tools: %d
+  Auto-Approve Commands: %d`,
+		strings.ToUpper(m.collaborationMode),
+		m.currentModelName,
+		m.currentProviderName,
+		cwd,
+		sessionID,
+		m.config.Tools.SandboxMode,
+		m.config.Tools.Yolo,
+		len(m.config.Tools.AutoApproveTools),
+		len(m.config.Tools.AutoApproveCommands),
+	)
+
+	msg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(status)
+	for _, line := range strings.Split(msg, "\n") {
+		m.AddDisplayContent(line)
+	}
+	m.AddDisplayContent("")
+	return nil
+}
+
+func (m *SimpleModel) RenderSessions(args []string) tea.Cmd {
+	action := "list"
+	if len(args) > 0 {
+		action = strings.ToLower(args[0])
+	}
+
+	switch action {
+	case "list":
+		summaries, err := session.ListSummaries(30)
+		if err != nil {
+			errMsg := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF3333")).
+				Render(fmt.Sprintf("Error listing sessions: %v", err))
+			m.AddDisplayContent(errMsg, "")
+			return nil
+		}
+		if len(summaries) == 0 {
+			m.AddDisplayContent(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				Render("No sessions found."))
+			m.AddDisplayContent("")
+			return nil
+		}
+
+		currentID := ""
+		if m.sess != nil {
+			currentID = m.sess.ID
+		}
+
+		var sb strings.Builder
+		sb.WriteString("Recent Sessions:\n")
+		for i, s := range summaries {
+			marker := " "
+			if s.ID == currentID {
+				marker = "*"
+			}
+			fmt.Fprintf(&sb, "  %s %2d. %s  %s  %s/%s\n", marker, i+1, s.ID, s.CreatedAt.Local().Format(time.DateTime), shortPath(s.WorkingDir), s.Model)
+		}
+		sb.WriteString("\nUsage: /sessions resume <id> | /sessions delete <id>")
+
+		msg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Render(sb.String())
+		for _, line := range strings.Split(msg, "\n") {
+			m.AddDisplayContent(line)
+		}
+		m.AddDisplayContent("")
+		return nil
+
+	case "resume":
+		if len(args) < 2 {
+			m.AddDisplayContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3333")).Render("Usage: /sessions resume <id>"), "")
+			return nil
+		}
+		sess, err := session.Load(args[1])
+		if err != nil {
+			m.AddDisplayContent(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF3333")).
+				Render(fmt.Sprintf("Failed to load session: %v", err)), "")
+			return nil
+		}
+
+		if err := m.switchModel(sess.Model); err != nil {
+			m.AddDisplayContent(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFA500")).
+				Render(fmt.Sprintf("Warning: could not switch model to %s: %v", sess.Model, err)))
+		}
+
+		m.sess = sess
+		m.isResume = true
+		m.messages = sess.Messages
+		m.session.Messages = sess.Messages
+		m.pendingToolCalls = nil
+		m.waitingForApproval = false
+		m.currentMessage = ""
+		m.loading = false
+		m.err = nil
+		m.cancelAPICall = nil
+		m.currentOperation = ""
+		m.operationStartedAt = time.Time{}
+		m.resetDisplayHeader()
+		m.restoreSessionDisplay()
+		m.viewport.GotoBottom()
+
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#04B575")).
+			Render("Resumed session: "+sess.ID), "")
+		return nil
+
+	case "delete":
+		if len(args) < 2 {
+			m.AddDisplayContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3333")).Render("Usage: /sessions delete <id>"), "")
+			return nil
+		}
+		target := args[1]
+		if m.sess != nil && target == m.sess.ID {
+			m.AddDisplayContent(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF3333")).
+				Render("Cannot delete the currently active session."), "")
+			return nil
+		}
+		if err := session.Delete(target); err != nil {
+			m.AddDisplayContent(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF3333")).
+				Render(fmt.Sprintf("Failed to delete session: %v", err)), "")
+			return nil
+		}
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#04B575")).
+			Render("Deleted session: "+target), "")
+		return nil
+
+	default:
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Render("Usage: /sessions [list|resume <id>|delete <id>]"), "")
+		return nil
+	}
+}
+
+func (m *SimpleModel) RenderTools() tea.Cmd {
+	all := tools.GetAllTools()
+	var sb strings.Builder
+	sb.WriteString("Available Tools and Approval Policy:\n")
+	for _, t := range all {
+		policy := "manual approval"
+		if m.config.Tools.Yolo {
+			policy = "auto-approved (YOLO)"
+		} else if containsString(m.config.Tools.AutoApproveTools, t.Name) {
+			policy = "auto-approved"
+		} else if t.Name == "execute_command" && len(m.config.Tools.AutoApproveCommands) > 0 {
+			policy = fmt.Sprintf("manual (command rules: %d, unsandboxed always manual)", len(m.config.Tools.AutoApproveCommands))
+		}
+		fmt.Fprintf(&sb, "  - %s: %s\n", t.Name, policy)
+	}
+
+	msg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(sb.String())
+	for _, line := range strings.Split(msg, "\n") {
+		m.AddDisplayContent(line)
+	}
+	m.AddDisplayContent("")
+	return nil
+}
+
 func (m *SimpleModel) RenderSkills() tea.Cmd {
 	if len(m.availableSkills) == 0 {
 		msg := lipgloss.NewStyle().
@@ -1151,6 +1334,36 @@ func (m *SimpleModel) RenderSkills() tea.Cmd {
 	}
 	m.AddDisplayContent("")
 	return nil
+}
+
+func (m *SimpleModel) resetDisplayHeader() {
+	welcomeMsg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7D56F4")).
+		Bold(true).
+		Render("🤖 Ashron - AI Coding Assistant")
+	helpMsg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render("Type /help for available commands")
+
+	m.displayContent = []string{welcomeMsg, helpMsg}
+	if m.config.Tools.Yolo {
+		yoloMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Bold(true).
+			Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved")
+		m.displayContent = append(m.displayContent, yoloMsg)
+	}
+	m.displayContent = append(m.displayContent, "")
+	m.viewportDirty = true
+}
+
+func containsString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper functions for managing messages

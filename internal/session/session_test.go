@@ -92,3 +92,18 @@ func TestLoadReadsFromDataDir(t *testing.T) {
 		t.Fatalf("unexpected loaded id: %s", loaded.ID)
 	}
 }
+
+func TestDeleteRemovesSessionFile(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	s := &Session{ID: "to-delete", CreatedAt: time.Now(), WorkingDir: "/tmp", Provider: "openai", Model: "gpt-4.1"}
+	if err := s.Save(); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+
+	if err := Delete("to-delete"); err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(DataDir(), "to-delete.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected deleted file, stat err=%v", err)
+	}
+}
