@@ -206,9 +206,9 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 	if absPath, err := filepath.Abs(rootPath); err == nil {
 		projectName = filepath.Base(absPath)
 	}
-	sb.WriteString(fmt.Sprintf("**Project:** %s\n", projectName))
-	sb.WriteString(fmt.Sprintf("**Type:** %s\n", projectType))
-	sb.WriteString(fmt.Sprintf("**Primary Language:** %s\n\n", mainLang))
+	fmt.Fprintf(&sb, "**Project:** %s\n", projectName)
+	fmt.Fprintf(&sb, "**Type:** %s\n", projectType)
+	fmt.Fprintf(&sb, "**Primary Language:** %s\n\n", mainLang)
 
 	// Custom description if exists
 	if desc, exists := customSections["description"]; exists {
@@ -228,11 +228,11 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 	keyComponents := identifyKeyComponents(files, projectType)
 	for category, items := range keyComponents {
 		if len(items) > 0 {
-			sb.WriteString(fmt.Sprintf("### %s\n\n", category))
+			fmt.Fprintf(&sb, "### %s\n\n", category)
 			for _, item := range items {
-				sb.WriteString(fmt.Sprintf("- `%s`", item.Path))
+				fmt.Fprintf(&sb, "- `%s`", item.Path)
 				if item.Description != "" {
-					sb.WriteString(fmt.Sprintf(": %s", item.Description))
+					fmt.Fprintf(&sb, ": %s", item.Description)
 				}
 				sb.WriteString("\n")
 			}
@@ -244,7 +244,7 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 	sb.WriteString("## Technologies\n\n")
 	techs := detectTechnologies(files)
 	for _, tech := range techs {
-		sb.WriteString(fmt.Sprintf("- %s\n", tech))
+		fmt.Fprintf(&sb, "- %s\n", tech)
 	}
 	sb.WriteString("\n")
 
@@ -255,7 +255,7 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 		sb.WriteString(guidelines)
 	} else {
 		sb.WriteString("### Code Style\n\n")
-		sb.WriteString(fmt.Sprintf("- Follow standard %s conventions\n", mainLang))
+		fmt.Fprintf(&sb, "- Follow standard %s conventions\n", mainLang)
 		sb.WriteString("- Maintain consistent formatting\n")
 		sb.WriteString("- Write clear, self-documenting code\n\n")
 
