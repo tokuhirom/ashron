@@ -10,6 +10,7 @@ Ashron is a TUI-based AI coding assistant for developers. It provides an interac
 - **Streaming Chat** - Real-time streaming responses for natural conversation flow
 - **Tool System** - Execute commands, read/write files directly from the chat
 - **Custom Slash Commands** - Add your own `/name` commands from local markdown templates
+- **Long Paste Compaction** - Large pasted user input is automatically compacted in TUI display with omission markers
 - **Context Management** - Smart context compaction with `/compact` command
 - **Flexible Configuration** - YAML-based configuration with environment variable support
 - **Session Management** - Startup session picker and in-app session list/resume/delete

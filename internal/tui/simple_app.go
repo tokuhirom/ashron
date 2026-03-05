@@ -266,10 +266,11 @@ func (m *SimpleModel) restoreSessionDisplay() {
 			if msg.Content == "" {
 				continue
 			}
+			displayInput := compactUserInputForDisplay(msg.Content)
 			line := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#04B575")).
 				Bold(true).
-				Render("You: ") + msg.Content
+				Render("You: ") + displayInput
 			m.displayContent = append(m.displayContent, line, "")
 		case "assistant":
 			if msg.Content == "" {
