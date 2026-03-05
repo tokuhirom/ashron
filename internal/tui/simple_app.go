@@ -650,11 +650,14 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Always update textarea so the user can type during loading
-	m.textarea, tiCmd = m.textarea.Update(msg)
-	cmds = append(cmds, tiCmd)
-	m.updateInputMode()
-	m.updateCompletionState()
+	// Update textarea only when the user can freely type
+	// (not while waiting for tool approval)
+	if !m.waitingForApproval {
+		m.textarea, tiCmd = m.textarea.Update(msg)
+		cmds = append(cmds, tiCmd)
+		m.updateInputMode()
+		m.updateCompletionState()
+	}
 
 	return m, tea.Batch(cmds...)
 }
