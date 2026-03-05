@@ -508,8 +508,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch msg.Text {
 				case "y", "Y":
 					m.approvePendingTools()
-					m.currentOperation = "Executing approved tools"
-					return m, m.executePendingTools()
+					return m, m.startToolExecution()
 				case "n", "N":
 					m.cancelPendingTools()
 					cancelMsg := lipgloss.NewStyle().
@@ -556,8 +555,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Auto-approve and execute
 			m.approvePendingTools()
-			m.currentOperation = "Executing approved tools"
-			return m, m.executePendingTools()
+			return m, m.startToolExecution()
 		}
 
 		// Auto-save session after assistant response
@@ -582,7 +580,10 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		if msg.hasMore {
+		if msg.moreTools {
+			// More pending tools to execute - show the next tool name.
+			return m, m.startToolExecution()
+		} else if msg.hasMore {
 			m.currentOperation = "Processing tool results"
 			m.operationStartedAt = time.Now()
 			return m, m.continueConversation()
@@ -1565,13 +1566,24 @@ func (m *SimpleModel) isAutoApproved(toolName string, arguments string) bool {
 	return false
 }
 
-// approvePendingTools approves pending tool calls
+// approvePendingTools marks pending tool calls as approved.
 func (m *SimpleModel) approvePendingTools() {
 	m.waitingForApproval = false
 	m.loading = true
 	m.statusMsg = "Executing tools..."
-	m.currentOperation = "Executing approved tools"
 	m.operationStartedAt = time.Now()
+}
+
+// startToolExecution sets the currentOperation label to the next pending tool
+// name and returns a command that executes it.  Callers must ensure
+// pendingToolCalls is non-empty before calling.
+func (m *SimpleModel) startToolExecution() tea.Cmd {
+	if len(m.pendingToolCalls) == 0 {
+		return nil
+	}
+	m.currentOperation = "Executing: " + m.pendingToolCalls[0].Function.Name
+	m.operationStartedAt = time.Now()
+	return m.executeNextTool()
 }
 
 // cancelPendingTools cancels pending tool calls
