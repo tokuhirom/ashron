@@ -56,27 +56,46 @@ ashron
 
 ## Configuration
 
-Ashron looks for configuration files in:
-1. `$XDG_CONFIG_HOME/ashron/ashron.yaml`
-2. `~/.config/ashron/ashron.yaml`
+Ashron loads configuration from the platform-standard config directory:
+
+- **Linux**: `$XDG_CONFIG_HOME/ashron/ashron.yaml` (defaults to `~/.config/ashron/ashron.yaml`)
+- **macOS**: `~/Library/Application Support/ashron/ashron.yaml`
+
+If no config file is found, a default one is created automatically.
 
 ### Example Configuration
 
 ```yaml
-# Provider settings (openai, anthropic, custom)
-provider: openai
+# Active provider and model
+default:
+  provider: openai
+  model: gpt4
 
-# API Configuration
-api:
-  base_url: https://api.openai.com/v1
-  model: gpt-4-turbo-preview
-  temperature: 0.7
+# Provider definitions
+providers:
+  openai:
+    type: openai-compat
+    base_url: https://api.openai.com/v1
+    # api_key: YOUR_API_KEY_HERE  (or use OPENAI_API_KEY env var)
+    timeout: 5m
+    models:
+      gpt4:
+        model: gpt-4-turbo-preview
+        temperature: 0.7
+      gpt-4.1:
+        model: gpt-4.1
+        temperature: 0.7
 
 # Tools Configuration
 tools:
   auto_approve_tools:
     - read_file
     - list_directory
+    - list_tools
+    - git_ls_files
+    - git_grep
+  auto_approve_commands:
+    - /^git add .*$/
   max_output_size: 50000
   command_timeout: 10m
   sandbox_mode: auto # auto|off
@@ -94,20 +113,23 @@ context:
 ### In-App Commands
 
 - `/help` - Show available commands
-- `/clear` - Clear chat history
+- `/clear` - Clear screen
 - `/compact` - Manually compact conversation context
 - `/config` - Display current configuration
-- `/exit` - Exit application
+- `/model [name]` - Show available models or switch to a different model
+- `/commit` - Generate and commit a git commit message
+- `/init` - Generate AGENTS.md for the current project
+- `/quit`, `/exit` - Exit application
 
 ### Keyboard Shortcuts
 
-- `Enter` - Send message  
+- `Enter` - Send message
 - `Ctrl+J` - Insert new line in input
 - `Ctrl+C` - Cancel current operation or exit
-- `Ctrl+L` - Clear chat
-- `Tab` - Approve pending tool calls
-- `Esc` - Cancel pending tool calls
-- `Enter` - New line in input
+- `Ctrl+P` / `Ctrl+N` - Scroll up / down
+- `y` / `n` - Approve / cancel pending tool calls
+- `Tab` / `Up` / `Down` - Navigate command completion
+- `Esc` - Close command completion
 
 ## Available Tools
 
@@ -200,25 +222,26 @@ Prerequisites:
 ashron [options]
 
 Options:
-  -config string    Path to configuration file
-  -api-key string   OpenAI API key (overrides config)
-  -model string     Model to use (overrides config)
-  -base-url string  API base URL (overrides config)
-  -yolo            Disable sandbox and require no tool approvals (dangerous)
-  -version         Show version information
-  -help            Show help message
+  --api-key string   OpenAI API key (overrides config) [$OPENAI_API_KEY]
+  --model string     Model to use (overrides config)
+  --base-url string  API base URL (overrides config)
+  --log string       Path to log file for debugging
+  --yolo             Disable sandbox and require no tool approvals (dangerous)
+  --version          Show version information
+  --help             Show help message
 ```
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` - OpenAI API key
+- `OPENAI_API_KEY` - OpenAI API key (also configurable via `--api-key`)
+- `XDG_CONFIG_HOME` - Override the base config directory (Linux)
 
 ## Development
 
 ### Prerequisites
 
-- Go 1.22 or higher
-- golangci-lint (for linting)
+- Go 1.24 or higher
+- [mise](https://mise.jdx.dev/) (recommended, for pinned tool versions)
 - lefthook (for git hooks)
 
 ### Setup
@@ -228,12 +251,11 @@ Options:
 git clone https://github.com/tokuhirom/ashron.git
 cd ashron
 
+# Install pinned tool versions (Go, golangci-lint)
+mise install
+
 # Install dependencies
 go mod download
-
-# Install development tools
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-go install github.com/evilmartians/lefthook@latest
 
 # Setup git hooks
 lefthook install
@@ -242,7 +264,7 @@ lefthook install
 go test -v ./...
 
 # Run linter
-golangci-lint run
+mise exec -- golangci-lint run
 
 # Build
 go build -o ashron ./cmd/ashron
