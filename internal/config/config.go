@@ -41,7 +41,7 @@ type ToolsConfig struct {
 	MaxOutputSize       int           `mapstructure:"max_output_size"`
 	CommandTimeout      time.Duration `mapstructure:"command_timeout"`
 	SandboxMode         string        `mapstructure:"sandbox_mode"`
-	Yolo                bool          `mapstructure:"yolo"`
+	Yolo                bool          `mapstructure:"-"`
 }
 
 type ContextConfig struct {
@@ -100,7 +100,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("tools.max_output_size", 50000)
 	v.SetDefault("tools.command_timeout", 10*time.Minute)
 	v.SetDefault("tools.sandbox_mode", "auto")
-	v.SetDefault("tools.yolo", false)
 
 	v.SetDefault("context.max_messages", 50)
 	v.SetDefault("context.max_tokens", 65535)
@@ -222,7 +221,6 @@ tools:
   max_output_size: 50000
   command_timeout: 10m
   sandbox_mode: auto
-  yolo: false
 
 # Context Management
 context:

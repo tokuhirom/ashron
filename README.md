@@ -80,7 +80,6 @@ tools:
   max_output_size: 50000
   command_timeout: 10m
   sandbox_mode: auto # auto|off
-  yolo: false
 
 # Context Management
 context:
@@ -128,14 +127,14 @@ context:
 
 | Mode | Sandbox | Tool approval | Intended use |
 | --- | --- | --- | --- |
-| Default (`sandbox_mode: auto`, `yolo: false`) | ON | Required (or auto-approve rules only) | Safe day-to-day use |
-| Global Off (`sandbox_mode: off`, `yolo: false`) | OFF | Required | Debugging sandbox-related failures |
+| Default (`sandbox_mode: auto`) | ON | Required (or auto-approve rules only) | Safe day-to-day use |
+| Global Off (`sandbox_mode: off`) | OFF | Required | Debugging sandbox-related failures |
 | Per-command Off (`execute_command.sandbox_mode: off`) | OFF (that command only) | Always required | One-shot unsandboxed command |
-| YOLO (`yolo: true` or `--yolo`) | OFF | Not required | Fully trusted local use only |
+| YOLO (`--yolo`) | OFF | Not required | Fully trusted local use only |
 
 ### Priority Rules
 
-1. `yolo: true` (or `--yolo`) has highest priority:
+1. `--yolo` has highest priority:
    - sandbox is always disabled
    - all tools are auto-approved
 2. If YOLO is off, command-level `execute_command.sandbox_mode` is used when provided.
@@ -162,7 +161,7 @@ Behavior and configuration:
 - Per-command override: `execute_command` accepts `sandbox_mode` (`auto` or `off`)
 - If required backend command is missing in `auto` mode, command execution fails with an explicit error.
 - Commands with `sandbox_mode: off` are never auto-approved and always require explicit approval.
-- `tools.yolo: true`: disables sandbox and auto-approves all tools (dangerous)
+- `--yolo`: disables sandbox and auto-approves all tools for that run (dangerous)
 
 Examples:
 
@@ -170,14 +169,12 @@ Examples:
 # Recommended default
 tools:
   sandbox_mode: auto
-  yolo: false
 ```
 
 ```yaml
 # Disable sandbox globally, but still keep manual approval
 tools:
   sandbox_mode: off
-  yolo: false
 ```
 
 ```bash
