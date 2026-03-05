@@ -124,10 +124,11 @@ func Load() (*Config, error) {
 }
 
 func configFilePath() string {
-	if configDir := os.Getenv("XDG_CONFIG_HOME"); configDir != "" {
-		return filepath.Join(configDir, "ashron", "ashron.yaml")
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		dir = filepath.Join(os.Getenv("HOME"), ".config")
 	}
-	return filepath.Join(os.Getenv("HOME"), ".config", "ashron", "ashron.yaml")
+	return filepath.Join(dir, "ashron", "ashron.yaml")
 }
 
 func applyDefaults(raw *rawConfig) {
