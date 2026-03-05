@@ -16,6 +16,11 @@ func TestListTools(t *testing.T) {
 		"execute_command",
 		"list_directory",
 		"list_tools",
+		"spawn_subagent",
+		"send_subagent_input",
+		"wait_subagent",
+		"list_subagents",
+		"close_subagent",
 		"git_grep",
 		"git_ls_files",
 	}
@@ -51,6 +56,11 @@ func TestListToolsJSON(t *testing.T) {
 		`"execute_command"`,
 		`"list_directory"`,
 		`"list_tools"`,
+		`"spawn_subagent"`,
+		`"send_subagent_input"`,
+		`"wait_subagent"`,
+		`"list_subagents"`,
+		`"close_subagent"`,
 		`"git_grep"`,
 		`"git_ls_files"`,
 	}
