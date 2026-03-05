@@ -1055,6 +1055,8 @@ func (m *SimpleModel) sendCompletionNotification() {
 // AddDisplayContent appends content to displayContent and automatically scrolls to bottom
 func (m *SimpleModel) AddDisplayContent(content ...string) {
 	m.displayContent = append(m.displayContent, content...)
+	// Ensure the viewport content reflects appended lines before jumping.
+	m.updateViewportContent()
 	m.viewport.GotoBottom()
 }
 
