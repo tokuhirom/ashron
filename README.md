@@ -125,6 +125,7 @@ context:
 ### Keyboard Shortcuts
 
 - `Enter` - Send message
+- `Shift+Tab` - Toggle collaboration mode (`Default` / `Plan`)
 - `Ctrl+J` - Insert new line in input
 - `Ctrl+C` - Cancel current operation or exit
 - `Ctrl+P` / `Ctrl+N` - Scroll up / down

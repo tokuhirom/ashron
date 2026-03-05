@@ -177,6 +177,7 @@ func cmdHelp(cr *CommandRegistry, m *SimpleModel) tea.Cmd {
 	sb.WriteString(`
 Keyboard Shortcuts:
   Ctrl+J     - Insert new line
+  Shift+Tab  - Toggle Default/Plan mode
   Enter      - Send message
   Ctrl+C     - Cancel current operation or exit
   Ctrl+L     - Clear screen

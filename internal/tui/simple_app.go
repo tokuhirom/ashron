@@ -83,6 +83,8 @@ type SimpleModel struct {
 
 	availableSkills []skills.Skill
 
+	collaborationMode string
+
 	// Session persistence
 	sess     *session.Session
 	isResume bool
@@ -190,6 +192,7 @@ You have access to tools for file operations and command execution. Always ask f
 		ready:               true,
 		commandRegistry:     commandRegistry,
 		availableSkills:     availableSkills,
+		collaborationMode:   "default",
 		displayContent:      initDisplay,
 		sess:                sess,
 		isResume:            isResume,
@@ -334,6 +337,11 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyPressMsg:
+		if isShiftTab(msg) {
+			m.toggleCollaborationMode()
+			return m, nil
+		}
+
 		// Ctrl+key shortcuts
 		if msg.Mod.Contains(tea.ModCtrl) {
 			switch msg.Code {
@@ -670,6 +678,12 @@ func (m *SimpleModel) renderFooter() string {
 		b.WriteString(m.textarea.View())
 	}
 
+	b.WriteString("\n")
+	modeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Italic(true)
+	b.WriteString(modeStyle.Render(fmt.Sprintf("Mode: %s (Shift+Tab to toggle)", strings.ToUpper(m.collaborationMode))))
+
 	// Display token usage if available
 	if m.currentUsage != nil {
 		b.WriteString("\n")
@@ -686,6 +700,34 @@ func (m *SimpleModel) renderFooter() string {
 	}
 
 	return b.String()
+}
+
+func isShiftTab(msg tea.KeyPressMsg) bool {
+	if msg.Code == tea.KeyTab && msg.Mod.Contains(tea.ModShift) {
+		return true
+	}
+	return msg.String() == "shift+tab"
+}
+
+func (m *SimpleModel) toggleCollaborationMode() {
+	if m.loading {
+		return
+	}
+
+	if m.collaborationMode == "default" {
+		m.collaborationMode = "plan"
+		m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Plan. First provide a concise plan and wait for explicit user approval before running tools or making code changes."))
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Render("Mode switched: PLAN"))
+		return
+	}
+
+	m.collaborationMode = "default"
+	m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Default. Execute the request directly when feasible, using tools and edits as needed."))
+	m.AddDisplayContent(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render("Mode switched: DEFAULT"))
 }
 
 // updateViewportContent updates the viewport with current display content
