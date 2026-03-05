@@ -351,6 +351,40 @@ func toolCallSummaryLines(tc api.ToolCall) []string {
 		}
 		return append(lines, "  └ Read file")
 	}
+	if tc.Function.Name == "write_file" {
+		var args struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args.Path == "" {
+			return append(lines, "  └ Write file")
+		}
+
+		change, err := tools.AnalyzeWriteFileChange(args.Path, args.Content)
+		if err != nil {
+			return append(lines,
+				"  └ Write file: "+args.Path,
+				"    preview unavailable: "+err.Error(),
+			)
+		}
+
+		changeLine := fmt.Sprintf("    lines %d -> %d, +%d -%d", change.OldLines, change.NewLines, change.Added, change.Removed)
+		if change.Unchanged {
+			changeLine += " (unchanged)"
+		}
+		if change.Existed {
+			return append(lines,
+				"  └ Write file: "+args.Path,
+				changeLine,
+				"    backup will be created before apply",
+			)
+		}
+		return append(lines,
+			"  └ Write file: "+args.Path,
+			changeLine,
+			"    new file",
+		)
+	}
 
 	return append(lines, "  └ Used tool: "+tc.Function.Name)
 }
