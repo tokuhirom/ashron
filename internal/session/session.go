@@ -83,6 +83,18 @@ func Load(sessionID string) (*Session, error) {
 	return &s, nil
 }
 
+// Delete removes a session file by ID.
+func Delete(sessionID string) error {
+	path := filepath.Join(DataDir(), sessionID+".json")
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("session %q not found", sessionID)
+		}
+		return fmt.Errorf("delete session %q: %w", sessionID, err)
+	}
+	return nil
+}
+
 // ListSummaries returns persisted sessions sorted by created_at desc.
 func ListSummaries(limit int) ([]Summary, error) {
 	dir := DataDir()

@@ -103,6 +103,27 @@ func NewCommandRegistry() *CommandRegistry {
 					return m.RenderConfig()
 				},
 			},
+			"/status": {
+				Name:        "/status",
+				Description: "Show runtime status (model, approvals, sandbox, cwd)",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.RenderStatus()
+				},
+			},
+			"/sessions": {
+				Name:        "/sessions",
+				Description: "Manage sessions. Usage: /sessions [list|resume <id>|delete <id>]",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.RenderSessions(args)
+				},
+			},
+			"/tools": {
+				Name:        "/tools",
+				Description: "List tools and approval policy",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.RenderTools()
+				},
+			},
 			"/skills": {
 				Name:        "/skills",
 				Description: "List locally available skills",
