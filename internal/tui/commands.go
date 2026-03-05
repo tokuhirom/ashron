@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -136,6 +137,18 @@ func NewCommandRegistry() *CommandRegistry {
 func (c *CommandRegistry) GetCommand(name string) (*Command, bool) {
 	cmd, exists := c.commands[name]
 	return &cmd, exists
+}
+
+// FilteredNames returns sorted command names that have the given prefix.
+func (c *CommandRegistry) FilteredNames(prefix string) []string {
+	var names []string
+	for name := range c.commands {
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // cmdHelp displays available commands

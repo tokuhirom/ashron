@@ -68,6 +68,10 @@ type SimpleModel struct {
 
 	commandRegistry *CommandRegistry
 
+	// Command completion state
+	showCompletion  bool
+	completionIndex int
+
 	// Display content - stores all conversation output
 	displayContent []string
 
@@ -221,6 +225,39 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tea.KeyMsg:
+		// Intercept navigation keys when completion popup is visible
+		if m.showCompletion && !m.loading {
+			items := m.commandRegistry.FilteredNames(m.textarea.Value())
+			switch msg.Type {
+			case tea.KeyUp:
+				if m.completionIndex > 0 {
+					m.completionIndex--
+				}
+				return m, nil
+			case tea.KeyDown:
+				if m.completionIndex < len(items)-1 {
+					m.completionIndex++
+				}
+				return m, nil
+			case tea.KeyTab:
+				if len(items) > 0 {
+					m.textarea.SetValue(items[m.completionIndex])
+					m.textarea.CursorEnd()
+					m.showCompletion = false
+				}
+				return m, nil
+			case tea.KeyEsc:
+				m.showCompletion = false
+				return m, nil
+			case tea.KeyEnter:
+				if len(items) > 0 {
+					selected := items[m.completionIndex]
+					m.showCompletion = false
+					return m, m.handleCommand(selected)
+				}
+			}
+		}
+
 		switch msg.Type {
 		case tea.KeyCtrlP:
 			m.viewport.ScrollUp(1)
@@ -367,6 +404,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !m.loading {
 		m.textarea, tiCmd = m.textarea.Update(msg)
 		cmds = append(cmds, tiCmd)
+		m.updateCompletionState()
 	}
 
 	return m, tea.Batch(cmds...)
@@ -379,9 +417,9 @@ func (m *SimpleModel) View() string {
 	}
 
 	footer := m.renderFooter()
-	lipgloss.Height(footer)
+	completion := m.renderCompletion()
 
-	m.viewport.Height = m.height - lipgloss.Height(footer) - 3
+	m.viewport.Height = m.height - lipgloss.Height(footer) - lipgloss.Height(completion) - 3
 	m.updateViewportContent()
 	viewportContent := m.viewport.View() + "\n\n"
 
@@ -391,7 +429,58 @@ func (m *SimpleModel) View() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
 		viewportContent,
+		completion,
 		footer)
+}
+
+// updateCompletionState updates the completion popup visibility based on textarea content.
+func (m *SimpleModel) updateCompletionState() {
+	input := m.textarea.Value()
+	if !strings.HasPrefix(input, "/") {
+		m.showCompletion = false
+		m.completionIndex = 0
+		return
+	}
+	items := m.commandRegistry.FilteredNames(input)
+	m.showCompletion = len(items) > 0
+	if m.completionIndex >= len(items) {
+		m.completionIndex = max(0, len(items)-1)
+	}
+}
+
+// renderCompletion renders the command completion popup.
+func (m *SimpleModel) renderCompletion() string {
+	if !m.showCompletion {
+		return ""
+	}
+	items := m.commandRegistry.FilteredNames(m.textarea.Value())
+	if len(items) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	for i, item := range items {
+		cmd, _ := m.commandRegistry.GetCommand(item)
+		line := fmt.Sprintf("%-12s %s", item, cmd.Description)
+		if i == m.completionIndex {
+			sb.WriteString(lipgloss.NewStyle().
+				Background(lipgloss.Color("#7D56F4")).
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Padding(0, 1).
+				Render(line))
+		} else {
+			sb.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#CCCCCC")).
+				Padding(0, 1).
+				Render(line))
+		}
+		sb.WriteString("\n")
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#7D56F4")).
+		Render(strings.TrimRight(sb.String(), "\n"))
 }
 
 func (m *SimpleModel) renderFooter() string {
