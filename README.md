@@ -126,12 +126,15 @@ context:
 ### Keyboard Shortcuts
 
 - `Enter` - Send message
+- `Shift+Tab` - Toggle collaboration mode (`Default` / `Plan`)
 - `Ctrl+J` - Insert new line in input
 - `Ctrl+C` - Cancel current operation or exit
 - `Ctrl+P` / `Ctrl+N` - Scroll up / down
 - `y` / `n` - Approve / cancel pending tool calls
 - `Tab` / `Up` / `Down` - Navigate command completion
 - `Esc` - Close command completion
+
+In `Plan` mode, assistant responses are automatically saved under `~/.local/share/ashron/plans/` (or `$XDG_DATA_HOME/ashron/plans`).
 
 ## Available Tools
 
