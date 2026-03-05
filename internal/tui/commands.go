@@ -102,6 +102,13 @@ func NewCommandRegistry() *CommandRegistry {
 					return m.RenderConfig()
 				},
 			},
+			"/skills": {
+				Name:        "/skills",
+				Description: "List locally available skills",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.RenderSkills()
+				},
+			},
 			"/model": {
 				Name:        "/model",
 				Description: "Show or switch model. Usage: /model [name]",

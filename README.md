@@ -116,6 +116,7 @@ context:
 - `/clear` - Clear screen
 - `/compact` - Manually compact conversation context
 - `/config` - Display current configuration
+- `/skills` - List locally available skills (`$XDG_CONFIG_HOME/ashron/skills`, `~/.config/ashron/skills`)
 - `/model [name]` - Show available models or switch to a different model
 - `/commit` - Generate and commit a git commit message
 - `/init` - Generate AGENTS.md for the current project
@@ -147,6 +148,15 @@ context:
 - **wait_subagent** - Wait for subagent completion and retrieve current result
 - **list_subagents** - List subagents and their status
 - **close_subagent** - Close a subagent and release resources
+
+## Skills
+
+Ashron can discover local skills from:
+
+- `$XDG_CONFIG_HOME/ashron/skills`
+- `~/.config/ashron/skills`
+
+When running `/init`, generated `AGENTS.md` now includes a `Skills` section listing discovered skills and their `SKILL.md` paths.
 
 ## Sandboxing
 

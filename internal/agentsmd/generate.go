@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/tokuhirom/ashron/internal/skills"
 )
 
 // GenerateAgentsMD generates an AGENTS.md file for the project
@@ -283,6 +285,21 @@ func generateAgentsMDContent(rootPath string, files []fileInfo, existingContent 
 		sb.WriteString("5. **Validate**: Ensure changes don't break existing functionality\n")
 	}
 	sb.WriteString("\n")
+
+	availableSkills := skills.Discover()
+	if len(availableSkills) > 0 {
+		sb.WriteString("## Skills\n")
+		sb.WriteString("A skill is a set of local instructions stored in a `SKILL.md` file.\n\n")
+		sb.WriteString("### Available skills\n")
+		for _, skill := range availableSkills {
+			if skill.Description != "" {
+				fmt.Fprintf(&sb, "- `%s`: %s (file: %s)\n", skill.Name, skill.Description, skill.Path)
+			} else {
+				fmt.Fprintf(&sb, "- `%s` (file: %s)\n", skill.Name, skill.Path)
+			}
+		}
+		sb.WriteString("\n")
+	}
 
 	// Auto-generated notice
 	sb.WriteString("---\n")
