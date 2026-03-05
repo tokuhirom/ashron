@@ -42,10 +42,11 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 		slog.Int("length", len(input)))
 
 	// Store the message for display
+	displayInput := compactUserInputForDisplay(input)
 	userMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#04B575")).
 		Bold(true).
-		Render("You: ") + input
+		Render("You: ") + displayInput
 
 	m.addUserMessage(input)
 	m.textarea.SetValue("")
