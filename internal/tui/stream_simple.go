@@ -144,6 +144,10 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 	var toolCalls []api.ToolCall
 	var chunkCount int
 	var usage *api.Usage
+	// thinkingFilter strips <think>...</think> blocks from the history while
+	// keeping them in the display output.  See thinking_filter.go for details.
+	var tf thinkingFilter
+
 	// Map to accumulate tool call arguments by index
 	toolCallArgs := make(map[int]*strings.Builder)
 	toolCallsByIndex := make(map[int]*api.ToolCall)
@@ -184,12 +188,17 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 
 				// Handle content
 				if choice.Delta.Content != "" {
-					// Collect content for output
-					output.WriteString(choice.Delta.Content)
-					fullContent.WriteString(choice.Delta.Content)
+					// Run the chunk through the thinking filter.
+					//   displayChunk  - written to the TUI output (includes <think> blocks)
+					//   historyChunk  - written to message history (<think> blocks stripped)
+					displayChunk, historyChunk := tf.Feed(choice.Delta.Content)
+
+					output.WriteString(displayChunk)
+					fullContent.WriteString(historyChunk)
 					slog.Debug("Received content chunk", "chunk", chunkCount, "contentLength", len(choice.Delta.Content), "totalLength", fullContent.Len())
 
-					// Update message history
+					// Update message history incrementally so that partial content is
+					// visible for context compaction even before the stream finishes.
 					if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
 						m.messages[len(m.messages)-1].Content = fullContent.String()
 					} else {
@@ -275,6 +284,14 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 
 					slog.Info("Stream finished", "reason", choice.FinishReason, "chunks", chunkCount, "contentLength", fullContent.Len(), "toolCalls", len(toolCalls))
 
+					// Flush any bytes still held in the thinking filter carry buffer.
+					// This handles the (unusual) case where the stream ends with a
+					// partial tag like "<thi" that never resolved into a real tag.
+					if flushDisplay, flushHistory := tf.Flush(); flushDisplay != "" || flushHistory != "" {
+						output.WriteString(flushDisplay)
+						fullContent.WriteString(flushHistory)
+					}
+
 					// Update the complete message
 					if len(m.messages) > 0 && m.messages[len(m.messages)-1].Role == "assistant" {
 						m.messages[len(m.messages)-1].Content = fullContent.String()
@@ -303,7 +320,12 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 		}
 	}
 
-	// Stream ended without a proper finish
+	// Stream ended without a proper finish (no stop/tool_calls reason received).
+	// Flush any remaining carry from the thinking filter.
+	if flushDisplay, flushHistory := tf.Flush(); flushDisplay != "" || flushHistory != "" {
+		output.WriteString(flushDisplay)
+		fullContent.WriteString(flushHistory)
+	}
 	return StreamOutput{Content: output.String(), Usage: usage}
 }
 
