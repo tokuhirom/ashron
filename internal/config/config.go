@@ -179,10 +179,7 @@ func convertConfig(raw rawConfig) (*Config, error) {
 		}
 		models := make(map[string]ModelConfig, len(rp.Models))
 		for mname, rm := range rp.Models {
-			models[mname] = ModelConfig{
-				Model:       rm.Model,
-				Temperature: rm.Temperature,
-			}
+			models[mname] = ModelConfig(rm)
 		}
 		providers[name] = ProviderConfig{
 			Type:    rp.Type,
