@@ -442,18 +442,20 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.Code {
 		case tea.KeyEnter:
-			// Send a message
-			input := m.textarea.Value()
-			if strings.TrimSpace(input) != "" {
-				// Check for commands
-				if strings.HasPrefix(input, "/") {
-					return m, m.handleCommand(input)
+			// Send a message (blocked while loading)
+			if !m.loading {
+				input := m.textarea.Value()
+				if strings.TrimSpace(input) != "" {
+					// Check for commands
+					if strings.HasPrefix(input, "/") {
+						return m, m.handleCommand(input)
+					}
+					// ! prefix: run shell command directly
+					if strings.HasPrefix(input, "!") {
+						return m, m.runShellCommand(strings.TrimPrefix(input, "!"))
+					}
+					return m, m.SendMessage(input)
 				}
-				// ! prefix: run shell command directly
-				if strings.HasPrefix(input, "!") {
-					return m, m.runShellCommand(strings.TrimPrefix(input, "!"))
-				}
-				return m, m.SendMessage(input)
 			}
 		default:
 			// Handle tool approval with y/n
@@ -577,12 +579,10 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Update components
-	if !m.loading {
-		m.textarea, tiCmd = m.textarea.Update(msg)
-		cmds = append(cmds, tiCmd)
-		m.updateCompletionState()
-	}
+	// Always update textarea so the user can type during loading
+	m.textarea, tiCmd = m.textarea.Update(msg)
+	cmds = append(cmds, tiCmd)
+	m.updateCompletionState()
 
 	return m, tea.Batch(cmds...)
 }
@@ -715,11 +715,10 @@ func (m *SimpleModel) renderCompletion() string {
 
 func (m *SimpleModel) renderFooter() string {
 	var b strings.Builder
-	// Render status/input area
+
+	// Status line above the textarea
 	if m.loading {
-		// Show spinner during loading
-		b.WriteString(m.spinner.View() + " Processing...\n")
-		// Show running subagent activity
+		b.WriteString(m.spinner.View() + " Processing... (Esc to cancel)\n")
 		for _, ag := range m.subagentSummary {
 			label := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#888888")).
@@ -732,8 +731,7 @@ func (m *SimpleModel) renderFooter() string {
 			if maxLen > 0 && len(lastLine) > maxLen {
 				lastLine = lastLine[:maxLen-1] + "…"
 			}
-			lineStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
-			b.WriteString(label + lineStyle.Render(lastLine) + "\n")
+			b.WriteString(label + lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render(lastLine) + "\n")
 		}
 	} else if m.waitingForApproval {
 		b.WriteString(m.renderApprovalPanel())
@@ -742,9 +740,10 @@ func (m *SimpleModel) renderFooter() string {
 			Foreground(lipgloss.Color("#FFA500")).
 			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
 		b.WriteString("\n")
-	} else {
-		b.WriteString(m.textarea.View())
 	}
+
+	// Textarea is always rendered
+	b.WriteString(m.textarea.View())
 
 	b.WriteString("\n")
 	modeStyle := lipgloss.NewStyle().
