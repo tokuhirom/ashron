@@ -141,7 +141,6 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 	ta.Prompt = "❯ "
 	taStyles := ta.Styles()
 	taStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(primaryColor)
-	taStyles.Focused.Base = normalTextareaBorder
 	ta.SetStyles(taStyles)
 	ta.Focus()
 
@@ -728,11 +727,9 @@ func (m *SimpleModel) updateInputMode() {
 	if strings.HasPrefix(m.textarea.Value(), "!") {
 		m.textarea.Prompt = "$ "
 		s.Focused.Prompt = lipgloss.NewStyle().Foreground(shellModeColor).Bold(true)
-		s.Focused.Base = shellTextareaBorder
 	} else {
 		m.textarea.Prompt = "❯ "
 		s.Focused.Prompt = lipgloss.NewStyle().Foreground(primaryColor)
-		s.Focused.Base = normalTextareaBorder
 	}
 	m.textarea.SetStyles(s)
 }
@@ -825,8 +822,14 @@ func (m *SimpleModel) renderFooter() string {
 		b.WriteString("\n")
 	}
 
-	// Textarea is always rendered
-	b.WriteString(m.textarea.View())
+	// Textarea is always rendered, wrapped with a border applied externally
+	// (not via Focused.Base) to avoid double-border.
+	taView := m.textarea.View()
+	if strings.HasPrefix(m.textarea.Value(), "!") {
+		b.WriteString(shellTextareaBorder.Render(taView))
+	} else {
+		b.WriteString(normalTextareaBorder.Render(taView))
+	}
 
 	b.WriteString("\n")
 	var modeStr string
