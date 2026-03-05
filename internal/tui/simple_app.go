@@ -97,6 +97,12 @@ type SimpleModel struct {
 
 	// Live subagent summaries for display, updated by a periodic tick
 	subagentSummary []tools.SubagentSummary
+
+	// scrolledToBottom is set to true once we have scrolled to the bottom after resume.
+	scrolledToBottom bool
+
+	// viewportDirty tracks whether displayContent has changed since the last SetContent call.
+	viewportDirty bool
 }
 
 // NewSimpleModel creates a new simplified application model.
@@ -275,6 +281,7 @@ func (m *SimpleModel) restoreSessionDisplay() {
 		Italic(true).
 		Render("── End of resumed session ──")
 	m.displayContent = append(m.displayContent, resumeFooter, "")
+	m.viewportDirty = true
 }
 
 // switchModel switches to a named model (searching all providers).
@@ -304,6 +311,7 @@ func subagentTick() tea.Cmd {
 // Init initializes the model
 func (m *SimpleModel) Init() tea.Cmd {
 	m.ReadAgentsMD()
+	m.viewportDirty = true
 	// Initialize viewport content
 	return tea.Batch(
 		textarea.Blink,
@@ -348,11 +356,16 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textarea.SetWidth(msg.Width - 2)
 		m.viewport.SetWidth(msg.Width - 2)
 		m.viewport.SetHeight(msg.Height - 8)
+		// On resume, scroll to bottom once the viewport has a real size.
+		if m.isResume && !m.scrolledToBottom {
+			m.updateViewportContent()
+			m.viewport.GotoBottom()
+			m.scrolledToBottom = true
+		}
 
 	case tea.MouseMsg:
-		slog.Info("Mouse event",
-			slog.String("event", msg.String()))
-		_, cmd := m.viewport.Update(msg)
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
 		return m, cmd
 
 	case tea.KeyPressMsg:
@@ -871,15 +884,16 @@ func (m *SimpleModel) toggleCollaborationMode() {
 		Render("Mode switched: DEFAULT"))
 }
 
-// updateViewportContent updates the viewport with current display content
+// updateViewportContent updates the viewport with current display content.
+// It only calls SetContent when the content has changed (viewportDirty),
+// to avoid resetting the scroll position on every render.
 func (m *SimpleModel) updateViewportContent() {
-	// Build content with current streaming message if any
-	displayWithCurrent := make([]string, len(m.displayContent))
-	copy(displayWithCurrent, m.displayContent)
-
-	// Join all content and set it in viewport
-	content := strings.Join(displayWithCurrent, "\n")
+	if !m.viewportDirty {
+		return
+	}
+	content := strings.Join(m.displayContent, "\n")
 	m.viewport.SetContent(content)
+	m.viewportDirty = false
 }
 
 // handleCommand processes slash commands
@@ -1146,6 +1160,8 @@ func (m *SimpleModel) InitProject() tea.Cmd {
 	previewLines := strings.Split(previewDisplay, "\n")
 	m.displayContent = append(m.displayContent, previewLines...)
 	m.displayContent = append(m.displayContent, "")
+	m.viewportDirty = true
+	m.updateViewportContent()
 	m.viewport.GotoBottom()
 
 	return nil
@@ -1218,7 +1234,7 @@ func (m *SimpleModel) savePlanIfNeeded(content string) {
 // AddDisplayContent appends content to displayContent and automatically scrolls to bottom
 func (m *SimpleModel) AddDisplayContent(content ...string) {
 	m.displayContent = append(m.displayContent, content...)
-	// Ensure the viewport content reflects appended lines before jumping.
+	m.viewportDirty = true
 	m.updateViewportContent()
 	m.viewport.GotoBottom()
 }
