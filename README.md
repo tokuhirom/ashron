@@ -90,6 +90,7 @@ providers:
 tools:
   auto_approve_tools:
     - read_file
+    - read_skill
     - list_directory
     - list_tools
     - git_ls_files
@@ -136,6 +137,7 @@ context:
 
 ### File Operations
 - **read_file** - Read contents of a file
+- **read_skill** - Read full `SKILL.md` content for an installed skill by name
 - **write_file** - Write content to a file
 - **list_directory** - List files in a directory
 
