@@ -1061,7 +1061,14 @@ func (m *SimpleModel) updateViewportContent() {
 
 // handleCommand processes slash commands
 func (m *SimpleModel) handleCommand(input string) tea.Cmd {
-	parts := strings.Fields(input)
+	parts, err := parseCommandLine(input)
+	if err != nil {
+		errorMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Render(fmt.Sprintf("Command parse error: %v", err))
+		m.AddDisplayContent(errorMsg, "")
+		return nil
+	}
 	if len(parts) == 0 {
 		return nil
 	}
