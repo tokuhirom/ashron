@@ -49,6 +49,7 @@ func NewCommandRegistry() *CommandRegistry {
 						m.displayContent = append(m.displayContent, yoloMsg)
 					}
 					m.displayContent = append(m.displayContent, "")
+					m.viewportDirty = true
 					m.viewport.GotoTop()
 					return nil
 				},
