@@ -256,11 +256,18 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 						}
 					}
 
-					slog.Debug("Tool call delta",
+					slog.Debug("Tool call delta processed",
+						"rawIndex", deltaToolCall.Index, // index field as received from provider
+						"usedIdx", idx, // slot we actually used
 						"id", deltaToolCall.ID,
 						"name", deltaToolCall.Function.Name,
-						"args", deltaToolCall.Function.Arguments,
-						"index", idx)
+						"argsLen", len(deltaToolCall.Function.Arguments),
+						"toolCallArgsLen", func() int {
+							if toolCallArgs[idx] != nil {
+								return toolCallArgs[idx].Len()
+							}
+							return 0
+						}())
 				}
 
 				// Check if finished

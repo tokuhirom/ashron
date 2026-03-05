@@ -88,6 +88,27 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 
 	slog.Debug("Starting streaming chat completion", "model", req.Model, "messages", len(req.Messages))
 
+	// Log the outgoing messages at DEBUG so we can inspect tool_calls / content
+	// in the conversation history when debugging provider-specific issues.
+	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+		for i, msg := range req.Messages {
+			if len(msg.ToolCalls) > 0 {
+				tcJSON, _ := json.Marshal(msg.ToolCalls)
+				slog.Debug("Outgoing message",
+					"index", i,
+					"role", msg.Role,
+					"contentLen", len(msg.Content),
+					"toolCalls", string(tcJSON))
+			} else {
+				slog.Debug("Outgoing message",
+					"index", i,
+					"role", msg.Role,
+					"contentLen", len(msg.Content),
+					"toolCallID", msg.ToolCallID)
+			}
+		}
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		slog.Error("Failed to marshal streaming request", "error", err)
@@ -152,6 +173,13 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 					return
 				}
 
+				// Log the raw SSE data line at DEBUG.
+				// This lets us see exactly what the provider sends, which is
+				// invaluable when debugging provider-specific quirks (e.g.
+				// whether GLM-4.7 includes `index` in tool call deltas, or
+				// whether it sends complete arguments in the start delta).
+				slog.Debug("Stream raw SSE data", "data", data)
+
 				var chunk StreamResponse
 				if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 					slog.Warn("Failed to parse streaming chunk", "error", err, "data", data)
@@ -159,20 +187,25 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 					continue
 				}
 
-				// Log the raw chunk for debugging
 				if len(chunk.Choices) > 0 {
-					slog.Debug("Raw stream chunk",
-						slog.String("content", chunk.Choices[0].Delta.Content),
-						slog.Int("toolCalls", len(chunk.Choices[0].Delta.ToolCalls)),
-						slog.String("finishReason", chunk.Choices[0].FinishReason))
-				}
+					choice := chunk.Choices[0]
 
-				if len(chunk.Choices) > 0 {
-					if chunk.Choices[0].Delta.Content != "" {
-						slog.Debug("Received streaming content", "length", len(chunk.Choices[0].Delta.Content))
-					}
-					if len(chunk.Choices[0].Delta.ToolCalls) > 0 {
-						slog.Debug("Received streaming tool calls", "count", len(chunk.Choices[0].Delta.ToolCalls))
+					// Log a concise parsed summary.
+					slog.Debug("Stream chunk parsed",
+						"finishReason", choice.FinishReason,
+						"contentLen", len(choice.Delta.Content),
+						"toolCallCount", len(choice.Delta.ToolCalls))
+
+					// For tool call deltas, log each field explicitly so we can
+					// verify index, id, name, and arguments in one log line.
+					for i, tc := range choice.Delta.ToolCalls {
+						slog.Debug("Stream tool call delta",
+							"deltaPos", i, // position within this delta's array
+							"tcIndex", tc.Index, // Index field from the provider JSON
+							"id", tc.ID,
+							"name", tc.Function.Name,
+							"argsLen", len(tc.Function.Arguments),
+							"args", tc.Function.Arguments)
 					}
 				}
 				eventChan <- StreamEvent{Data: &chunk}
