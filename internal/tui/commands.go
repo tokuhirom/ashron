@@ -33,25 +33,16 @@ func NewCommandRegistry() *CommandRegistry {
 				Name:        "/clear",
 				Description: "Clear the screen",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
-					welcomeMsg := lipgloss.NewStyle().
-						Foreground(lipgloss.Color("#7D56F4")).
-						Bold(true).
-						Render("🤖 Ashron - AI Coding Assistant")
-					helpMsg := lipgloss.NewStyle().
-						Foreground(lipgloss.Color("#626262")).
-						Render("Type /help for available commands")
-					m.displayContent = []string{welcomeMsg, helpMsg}
-					if m.config.Tools.Yolo {
-						yoloMsg := lipgloss.NewStyle().
-							Foreground(lipgloss.Color("#FF3333")).
-							Bold(true).
-							Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved")
-						m.displayContent = append(m.displayContent, yoloMsg)
-					}
-					m.displayContent = append(m.displayContent, "")
-					m.viewportDirty = true
+					m.resetDisplayHeader()
 					m.viewport.GotoTop()
 					return nil
+				},
+			},
+			"/new": {
+				Name:        "/new",
+				Description: "Start a new chat session",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.StartNewSession()
 				},
 			},
 			"/compact": {

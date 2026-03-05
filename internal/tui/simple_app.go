@@ -165,20 +165,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 		messages = sess.Messages
 	} else {
 		sess = session.New(provName, modelName)
-
-		// Add system prompt for new sessions
-		systemPrompt := `You are Ashron, an AI coding assistant. You help users with programming tasks by:
-- Writing and editing code
-- Running commands
-- Explaining concepts
-- Debugging issues
-- Suggesting improvements
-
-You have access to tools for file operations and command execution. Always ask for approval before making changes unless the operation is pre-approved.`
-		if skillsPrompt := skills.MetadataPrompt(availableSkills); skillsPrompt != "" {
-			systemPrompt += "\n\n" + skillsPrompt
-		}
-		messages = append(messages, api.NewSystemMessage(systemPrompt))
+		messages = initialMessagesForNewSession(availableSkills)
 	}
 	chatSession.Messages = messages
 
@@ -353,6 +340,57 @@ func (m *SimpleModel) ReadAgentsMD() {
 
 	slog.Info("Add AGENTS.md content to session messages")
 	m.session.Messages = append(m.session.Messages, api.NewSystemMessage(string(content)))
+}
+
+func initialMessagesForNewSession(availableSkills []skills.Skill) []api.Message {
+	systemPrompt := `You are Ashron, an AI coding assistant. You help users with programming tasks by:
+- Writing and editing code
+- Running commands
+- Explaining concepts
+- Debugging issues
+- Suggesting improvements
+
+You have access to tools for file operations and command execution. Always ask for approval before making changes unless the operation is pre-approved.`
+	if skillsPrompt := skills.MetadataPrompt(availableSkills); skillsPrompt != "" {
+		systemPrompt += "\n\n" + skillsPrompt
+	}
+	return []api.Message{api.NewSystemMessage(systemPrompt)}
+}
+
+// StartNewSession saves current progress and switches to a brand new session.
+func (m *SimpleModel) StartNewSession() tea.Cmd {
+	m.saveSession()
+
+	newSess := session.New(m.currentProviderName, m.currentModelName)
+	m.sess = newSess
+	m.isResume = false
+	m.scrolledToBottom = false
+
+	m.messages = initialMessagesForNewSession(m.availableSkills)
+	m.session.Messages = m.messages
+	m.pendingToolCalls = nil
+	m.waitingForApproval = false
+	m.currentMessage = ""
+	m.currentUsage = nil
+	m.loading = false
+	m.err = nil
+	m.cancelAPICall = nil
+	m.currentOperation = ""
+	m.operationStartedAt = time.Time{}
+
+	m.resetDisplayHeader()
+
+	agents := agentsmd.ReadAgentsMD()
+	if agents != "" {
+		m.session.Messages = append(m.session.Messages, api.NewSystemMessage(agents))
+		m.messages = m.session.Messages
+	}
+
+	m.saveSession()
+	m.AddDisplayContent(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#04B575")).
+		Render("Started new session: "+newSess.ID), "")
+	return nil
 }
 
 // Update handles messages

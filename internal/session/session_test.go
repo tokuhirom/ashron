@@ -107,3 +107,17 @@ func TestDeleteRemovesSessionFile(t *testing.T) {
 		t.Fatalf("expected deleted file, stat err=%v", err)
 	}
 }
+
+func TestNewAvoidsSessionIDCollision(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
+	first := New("openai", "gpt-4.1")
+	if err := first.Save(); err != nil {
+		t.Fatalf("save first session: %v", err)
+	}
+	second := New("openai", "gpt-4.1")
+
+	if first.ID == second.ID {
+		t.Fatalf("expected unique session IDs, got %q", first.ID)
+	}
+}

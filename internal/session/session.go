@@ -34,12 +34,25 @@ type Summary struct {
 // New creates a new session with a timestamp-based ID.
 func New(provider, model string) *Session {
 	wd, _ := os.Getwd()
+	now := time.Now()
 	return &Session{
-		ID:         time.Now().Format("20060102-150405"),
-		CreatedAt:  time.Now(),
+		ID:         nextSessionID(now),
+		CreatedAt:  now,
 		WorkingDir: wd,
 		Provider:   provider,
 		Model:      model,
+	}
+}
+
+func nextSessionID(now time.Time) string {
+	base := now.Format("20060102-150405")
+	id := base
+	for i := 1; ; i++ {
+		path := filepath.Join(DataDir(), id+".json")
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return id
+		}
+		id = fmt.Sprintf("%s-%d", base, i)
 	}
 }
 
