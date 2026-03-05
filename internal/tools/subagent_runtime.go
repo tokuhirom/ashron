@@ -24,3 +24,33 @@ func getSubagentManager() *subagent.Manager {
 	defer subagentMu.RUnlock()
 	return subagentManager
 }
+
+// SubagentSummary is a lightweight view of a running subagent for the TUI.
+type SubagentSummary struct {
+	ID       string
+	LastLine string
+}
+
+// GetSubagentsSummary returns summaries of all currently running subagents.
+// Safe to call from any goroutine; intended for TUI polling.
+func GetSubagentsSummary() []SubagentSummary {
+	mgr := getSubagentManager()
+	if mgr == nil {
+		return nil
+	}
+	raw := mgr.GetRunningSummary()
+	out := make([]SubagentSummary, len(raw))
+	for i, s := range raw {
+		out[i] = SubagentSummary{ID: s.ID, LastLine: s.LastLine}
+	}
+	return out
+}
+
+// GetSubagentLog returns the full accumulated log for the given subagent.
+func GetSubagentLog(id string) (string, error) {
+	mgr := getSubagentManager()
+	if mgr == nil {
+		return "", nil
+	}
+	return mgr.GetLog(id)
+}

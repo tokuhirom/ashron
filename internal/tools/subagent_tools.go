@@ -132,6 +132,36 @@ func ListSubagents(_ *config.ToolsConfig, toolCallID string, _ string) api.ToolR
 	return result
 }
 
+func GetSubagentLogTool(_ *config.ToolsConfig, toolCallID string, argsJSON string) api.ToolResult {
+	result := api.ToolResult{ToolCallID: toolCallID}
+	mgr := getSubagentManager()
+	if mgr == nil {
+		result.Error = fmt.Errorf("subagent runtime is not configured")
+		result.Output = "Error: subagent runtime is not configured"
+		return result
+	}
+
+	var args SubagentIDArgs
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		result.Error = err
+		result.Output = fmt.Sprintf("Error: invalid arguments - %v", err)
+		return result
+	}
+
+	log, err := mgr.GetLog(args.ID)
+	if err != nil {
+		result.Error = err
+		result.Output = fmt.Sprintf("Error: %v", err)
+		return result
+	}
+	if log == "" {
+		result.Output = "(no output yet)"
+	} else {
+		result.Output = log
+	}
+	return result
+}
+
 func CloseSubagent(_ *config.ToolsConfig, toolCallID string, argsJSON string) api.ToolResult {
 	result := api.ToolResult{ToolCallID: toolCallID}
 	mgr := getSubagentManager()

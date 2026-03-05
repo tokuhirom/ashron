@@ -167,6 +167,21 @@ func GetAllTools() []ToolInfo {
 			callback: ListSubagents,
 		},
 		{
+			Name:        "get_subagent_log",
+			Description: "Get the current (possibly partial) output log of a subagent. Works while the subagent is still running.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"id": {
+						Type:        "string",
+						Description: "Subagent ID",
+					},
+				},
+				Required: []string{"id"},
+			},
+			callback: GetSubagentLogTool,
+		},
+		{
 			Name:        "close_subagent",
 			Description: "Close a subagent and release its resources",
 			Parameters: api.FunctionParameters{
