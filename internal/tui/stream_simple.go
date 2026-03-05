@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -227,31 +226,12 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 						}
 						toolCalls = append(toolCalls, *tc)
 
-						// Add tool call info to output with arguments
-						output.WriteString(lipgloss.NewStyle().
-							Background(lipgloss.Color("#2a2a2a")).
-							Foreground(lipgloss.Color("#FF7F50")).
-							Padding(0, 1).
-							Render(fmt.Sprintf("🔧 Calling %s", tc.Function.Name)))
-						output.WriteString("\n")
-
-						// Display arguments in a readable format
-						if tc.Function.Arguments != "" && tc.Function.Arguments != "{}" {
-							var args map[string]interface{}
-							if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil {
-								output.WriteString(lipgloss.NewStyle().
-									Foreground(lipgloss.Color("#626262")).
-									PaddingLeft(3).
-									Render("Arguments:"))
-								output.WriteString("\n")
-								for key, value := range args {
-									output.WriteString(lipgloss.NewStyle().
-										Foreground(lipgloss.Color("#626262")).
-										PaddingLeft(5).
-										Render(fmt.Sprintf("• %s: %v", key, value)))
-									output.WriteString("\n")
-								}
-							}
+						// Keep tool execution display compact (single-line summary).
+						for _, line := range toolCallSummaryLines(*tc) {
+							output.WriteString(lipgloss.NewStyle().
+								Foreground(lipgloss.Color("#626262")).
+								Render(line))
+							output.WriteString("\n")
 						}
 
 						slog.Debug("Finalized tool call",
@@ -304,29 +284,13 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 			result := m.toolExec.Execute(tc)
 			results = append(results, result)
 
-			// Collect tool result output
-			output.WriteString(lipgloss.NewStyle().
-				Background(lipgloss.Color("#2a2a2a")).
-				Foreground(lipgloss.Color("#626262")).
-				Padding(0, 1).
-				Render("Tool Result:"))
-			output.WriteString("\n")
-
-			// Truncate long output for display
-			lines := strings.Split(result.Output, "\n")
-			maxLines := 20
-			if len(lines) > maxLines {
-				displayOutput := strings.Join(lines[:maxLines], "\n")
-				output.WriteString(displayOutput)
-				output.WriteString("\n")
+			// Keep tool result display compact; detailed output remains in tool messages.
+			if result.Error != nil {
 				output.WriteString(lipgloss.NewStyle().
-					Foreground(lipgloss.Color("#626262")).
-					Italic(true).
-					Render(fmt.Sprintf("[... %d more lines truncated for display]", len(lines)-maxLines)))
-			} else {
-				output.WriteString(result.Output)
+					Foreground(lipgloss.Color("#FF7F50")).
+					Render("tool error: " + tc.Function.Name))
+				output.WriteString("\n")
 			}
-			output.WriteString("\n\n")
 
 			// Add tool result message
 			m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))
@@ -341,4 +305,20 @@ func (m *SimpleModel) executePendingTools() tea.Cmd {
 			output:  output.String(),
 		}
 	}
+}
+
+func toolCallSummaryLines(tc api.ToolCall) []string {
+	lines := []string{"• Explored"}
+
+	if tc.Function.Name == "read_file" {
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Path != "" {
+			return append(lines, "  └ Read file: "+args.Path)
+		}
+		return append(lines, "  └ Read file")
+	}
+
+	return append(lines, "  └ Used tool: "+tc.Function.Name)
 }
