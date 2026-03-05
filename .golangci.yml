@@ -15,7 +15,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/tokuhirom/dcv
+        - github.com/tokuhirom/ashron
 
 issues:
   max-issues-per-linter: 0
