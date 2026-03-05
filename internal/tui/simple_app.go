@@ -746,10 +746,23 @@ func (m *SimpleModel) renderFooter() string {
 	b.WriteString(m.textarea.View())
 
 	b.WriteString("\n")
-	modeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#626262")).
-		Italic(true)
-	b.WriteString(modeStyle.Render(fmt.Sprintf("Mode: %s (Shift+Tab to toggle)", strings.ToUpper(m.collaborationMode))))
+	var modeStr string
+	if m.collaborationMode == "plan" {
+		modeStr = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFD700")).
+			Bold(true).
+			Render("PLAN") +
+			lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				Italic(true).
+				Render(" mode (Shift+Tab to toggle)")
+	} else {
+		modeStr = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Italic(true).
+			Render("DEFAULT mode (Shift+Tab to toggle)")
+	}
+	b.WriteString(modeStr)
 
 	// Display token usage if available
 	if m.currentUsage != nil {
