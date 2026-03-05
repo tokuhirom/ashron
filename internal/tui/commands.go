@@ -40,7 +40,15 @@ func NewCommandRegistry() *CommandRegistry {
 					helpMsg := lipgloss.NewStyle().
 						Foreground(lipgloss.Color("#626262")).
 						Render("Type /help for available commands")
-					m.displayContent = []string{welcomeMsg, helpMsg, ""}
+					m.displayContent = []string{welcomeMsg, helpMsg}
+					if m.config.Tools.Yolo {
+						yoloMsg := lipgloss.NewStyle().
+							Foreground(lipgloss.Color("#FF3333")).
+							Bold(true).
+							Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved")
+						m.displayContent = append(m.displayContent, yoloMsg)
+					}
+					m.displayContent = append(m.displayContent, "")
 					m.viewport.GotoTop()
 					return nil
 				},

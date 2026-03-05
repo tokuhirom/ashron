@@ -40,6 +40,8 @@ type ToolsConfig struct {
 	AutoApproveCommands []string      `mapstructure:"auto_approve_commands"`
 	MaxOutputSize       int           `mapstructure:"max_output_size"`
 	CommandTimeout      time.Duration `mapstructure:"command_timeout"`
+	SandboxMode         string        `mapstructure:"sandbox_mode"`
+	Yolo                bool          `mapstructure:"-"`
 }
 
 type ContextConfig struct {
@@ -97,6 +99,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("tools.auto_approve_commands", []string{})
 	v.SetDefault("tools.max_output_size", 50000)
 	v.SetDefault("tools.command_timeout", 10*time.Minute)
+	v.SetDefault("tools.sandbox_mode", "auto")
 
 	v.SetDefault("context.max_messages", 50)
 	v.SetDefault("context.max_tokens", 65535)
@@ -217,6 +220,7 @@ tools:
     - /^git add .*$/
   max_output_size: 50000
   command_timeout: 10m
+  sandbox_mode: auto
 
 # Context Management
 context:

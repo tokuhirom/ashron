@@ -64,6 +64,10 @@ func GetAllTools() []ToolInfo {
 						Type:        "string",
 						Description: "Working directory for the command (optional)",
 					},
+					"sandbox_mode": {
+						Type:        "string",
+						Description: "Sandbox mode override for this command: 'auto' (default) or 'off'",
+					},
 				},
 				Required: []string{"command"},
 			},

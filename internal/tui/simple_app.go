@@ -141,6 +141,13 @@ You have access to tools for file operations and command execution. Always ask f
 	helpMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render("Type /help for available commands")
+	yoloMsg := ""
+	if cfg.Tools.Yolo {
+		yoloMsg = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Bold(true).
+			Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved")
+	}
 
 	commandRegistry := NewCommandRegistry()
 
@@ -159,7 +166,12 @@ You have access to tools for file operations and command execution. Always ask f
 		statusMsg:           "Ready",
 		ready:               true,
 		commandRegistry:     commandRegistry,
-		displayContent:      []string{welcomeMsg, helpMsg, ""},
+		displayContent: append([]string{welcomeMsg, helpMsg}, func() []string {
+			if yoloMsg == "" {
+				return []string{""}
+			}
+			return []string{yoloMsg, ""}
+		}()...),
 	}, nil
 }
 
@@ -618,7 +630,9 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
   Temperature: %.2f
   API Timeout: %s
   Max Tokens: %d
-  Auto-Compact: %v`,
+  Auto-Compact: %v
+  Sandbox Mode: %s
+  YOLO Mode: %v`,
 		m.currentProviderName,
 		m.currentModelName,
 		modelStr,
@@ -626,6 +640,8 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 		timeout,
 		m.config.Context.MaxTokens,
 		m.config.Context.AutoCompact,
+		m.config.Tools.SandboxMode,
+		m.config.Tools.Yolo,
 	)
 
 	configDisplay := lipgloss.NewStyle().
@@ -649,6 +665,11 @@ func (m *SimpleModel) addUserMessage(content string) {
 
 // checkToolApproval checks if tools need approval
 func (m *SimpleModel) checkToolApproval() {
+	if m.config.Tools.Yolo {
+		m.approvePendingTools()
+		return
+	}
+
 	needsApproval := false
 	for _, tc := range m.pendingToolCalls {
 		if !m.isAutoApproved(tc.Function.Name, tc.Function.Arguments) {
@@ -668,6 +689,25 @@ func (m *SimpleModel) checkToolApproval() {
 
 // isAutoApproved checks if a tool is auto-approved
 func (m *SimpleModel) isAutoApproved(toolName string, arguments string) bool {
+	if m.config.Tools.Yolo {
+		return true
+	}
+
+	if toolName == "execute_command" {
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			slog.Error("Failed to parse tool arguments",
+				slog.Any("error", err),
+				slog.Any("arguments", arguments))
+			return false
+		}
+
+		// Never auto-approve unsandboxed command execution.
+		if strings.EqualFold(tools.EffectiveSandboxMode(&m.config.Tools, args), "off") {
+			return false
+		}
+	}
+
 	for _, approved := range m.config.Tools.AutoApproveTools {
 		if approved == toolName {
 			return true
