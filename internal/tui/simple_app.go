@@ -169,23 +169,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 	}
 	chatSession.Messages = messages
 
-	// Build initial display content
-	welcomeMsg := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#7D56F4")).
-		Bold(true).
-		Render("🤖 Ashron - AI Coding Assistant")
-	helpMsg := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#626262")).
-		Render("Type /help for available commands")
-
-	initDisplay := []string{welcomeMsg, helpMsg}
-	if cfg.Tools.Yolo {
-		initDisplay = append(initDisplay, lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF3333")).
-			Bold(true).
-			Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved"))
-	}
-	initDisplay = append(initDisplay, "")
+	initDisplay := buildHeaderLines(cfg.Tools.Yolo)
 
 	commandRegistry := NewCommandRegistry()
 
@@ -1444,24 +1428,32 @@ func (m *SimpleModel) runCustomCommand(cmd customcmd.Command, args []string) tea
 }
 
 func (m *SimpleModel) resetDisplayHeader() {
+	m.displayContent = buildHeaderLines(m.config.Tools.Yolo)
+	m.viewportDirty = true
+}
+
+func buildHeaderLines(yolo bool) []string {
 	welcomeMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#7D56F4")).
 		Bold(true).
 		Render("🤖 Ashron - AI Coding Assistant")
+	versionMsg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(buildInfoLine())
 	helpMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render("Type /help for available commands")
 
-	m.displayContent = []string{welcomeMsg, helpMsg}
-	if m.config.Tools.Yolo {
+	lines := []string{welcomeMsg, versionMsg, helpMsg}
+	if yolo {
 		yoloMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Bold(true).
 			Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved")
-		m.displayContent = append(m.displayContent, yoloMsg)
+		lines = append(lines, yoloMsg)
 	}
-	m.displayContent = append(m.displayContent, "")
-	m.viewportDirty = true
+	lines = append(lines, "")
+	return lines
 }
 
 func containsString(items []string, target string) bool {

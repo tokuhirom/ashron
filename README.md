@@ -7,6 +7,7 @@ Ashron is a TUI-based AI coding assistant for developers. It provides an interac
 ## Features
 
 - **Beautiful TUI Interface** - Built with Bubble Tea framework for a smooth terminal experience
+- **Startup Build Info** - Shows version/commit/build date in the startup header
 - **Streaming Chat** - Real-time streaming responses for natural conversation flow
 - **Tool System** - Execute commands, read/write files directly from the chat
 - **Custom Slash Commands** - Add your own `/name` commands from local markdown templates
