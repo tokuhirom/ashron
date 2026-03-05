@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/tokuhirom/ashron/internal/api"
@@ -18,6 +20,15 @@ type Session struct {
 	Provider   string        `json:"provider"`
 	Model      string        `json:"model"`
 	Messages   []api.Message `json:"messages"`
+}
+
+// Summary is a lightweight representation of a persisted session.
+type Summary struct {
+	ID         string
+	CreatedAt  time.Time
+	WorkingDir string
+	Provider   string
+	Model      string
 }
 
 // New creates a new session with a timestamp-based ID.
@@ -70,4 +81,50 @@ func Load(sessionID string) (*Session, error) {
 		return nil, fmt.Errorf("parse session %q: %w", sessionID, err)
 	}
 	return &s, nil
+}
+
+// ListSummaries returns persisted sessions sorted by created_at desc.
+func ListSummaries(limit int) ([]Summary, error) {
+	dir := DataDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read session dir: %w", err)
+	}
+
+	summaries := make([]Summary, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		data, readErr := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if readErr != nil {
+			continue
+		}
+
+		var s Session
+		if unmarshalErr := json.Unmarshal(data, &s); unmarshalErr != nil {
+			continue
+		}
+
+		summaries = append(summaries, Summary{
+			ID:         s.ID,
+			CreatedAt:  s.CreatedAt,
+			WorkingDir: s.WorkingDir,
+			Provider:   s.Provider,
+			Model:      s.Model,
+		})
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].CreatedAt.After(summaries[j].CreatedAt)
+	})
+
+	if limit > 0 && len(summaries) > limit {
+		return summaries[:limit], nil
+	}
+	return summaries, nil
 }
