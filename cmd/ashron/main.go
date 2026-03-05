@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/tokuhirom/ashron/internal/config"
 	"github.com/tokuhirom/ashron/internal/logger"
+	"github.com/tokuhirom/ashron/internal/session"
 	"github.com/tokuhirom/ashron/internal/tui"
 )
 
@@ -25,6 +26,7 @@ var cli struct {
 	BaseURL string `help:"API base URL (overrides config)" name:"base-url"`
 	Log     string `help:"Path to log file for debugging"`
 	Yolo    bool   `help:"Disable sandbox and require no tool approvals (dangerous)"`
+	Resume  string `help:"Resume a previous session by ID" name:"resume" optional:""`
 
 	Version kong.VersionFlag `help:"Show version and exit"`
 }
@@ -84,8 +86,18 @@ func main() {
 
 	slog.Info("Starting Ashron", "version", version, "commit", commit)
 
+	// Load session for resume if requested
+	var sess *session.Session
+	if cli.Resume != "" {
+		var loadErr error
+		sess, loadErr = session.Load(cli.Resume)
+		if loadErr != nil {
+			log.Fatalf("Failed to load session: %v", loadErr)
+		}
+	}
+
 	// Create the simple TUI model (streaming mode)
-	tuiModel, err := tui.NewSimpleModel(cfg)
+	tuiModel, err := tui.NewSimpleModel(cfg, sess)
 	if err != nil {
 		log.Fatalf("Failed to create application: %v", err)
 	}
@@ -93,9 +105,17 @@ func main() {
 	p := tea.NewProgram(tuiModel)
 
 	// Run the program
-	if _, err := p.Run(); err != nil {
+	finalModel, err := p.Run()
+	if err != nil {
 		fmt.Printf("Error running application: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Print resume hint after exit
+	if sm, ok := finalModel.(*tui.SimpleModel); ok {
+		if id := sm.SessionID(); id != "" {
+			fmt.Printf("\nTo resume this session: ashron --resume %s\n", id)
+		}
 	}
 }
 
