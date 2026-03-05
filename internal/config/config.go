@@ -11,18 +11,28 @@ import (
 )
 
 type Config struct {
-	API      APIConfig     `mapstructure:"api"`
-	Tools    ToolsConfig   `mapstructure:"tools"`
-	Context  ContextConfig `mapstructure:"context"`
-	Provider string        `mapstructure:"provider"`
+	Default   DefaultConfig             `mapstructure:"default"`
+	Providers map[string]ProviderConfig `mapstructure:"providers"`
+	Tools     ToolsConfig               `mapstructure:"tools"`
+	Context   ContextConfig             `mapstructure:"context"`
 }
 
-type APIConfig struct {
-	BaseURL     string        `mapstructure:"base_url"`
-	APIKey      string        `mapstructure:"api_key"`
-	Model       string        `mapstructure:"model"`
-	Temperature float32       `mapstructure:"temperature"`
-	Timeout     time.Duration `mapstructure:"timeout"`
+type DefaultConfig struct {
+	Provider string `mapstructure:"provider"`
+	Model    string `mapstructure:"model"`
+}
+
+type ProviderConfig struct {
+	Type    string                 `mapstructure:"type"`
+	BaseURL string                 `mapstructure:"base_url"`
+	APIKey  string                 `mapstructure:"api_key"`
+	Timeout time.Duration          `mapstructure:"timeout"`
+	Models  map[string]ModelConfig `mapstructure:"models"`
+}
+
+type ModelConfig struct {
+	Model       string  `mapstructure:"model"`
+	Temperature float32 `mapstructure:"temperature"`
 }
 
 type ToolsConfig struct {
@@ -42,33 +52,27 @@ type ContextConfig struct {
 func Load() (*Config, error) {
 	v := viper.New()
 
-	// Set defaults
 	setDefaults(v)
 
-	// Set config name and paths
 	v.SetConfigName("ashron")
 	v.SetConfigType("yaml")
 
-	// Add config paths
 	if configDir := os.Getenv("XDG_CONFIG_HOME"); configDir != "" {
 		v.AddConfigPath(filepath.Join(configDir, "ashron"))
 	}
 	v.AddConfigPath(filepath.Join(os.Getenv("HOME"), ".config", "ashron"))
 
-	// Read environment variables
 	v.SetEnvPrefix("ASHRON")
 	v.AutomaticEnv()
 
-	// Override API key from env if present
+	// Convenience: support OPENAI_API_KEY env var for the openai provider
 	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		v.Set("api.api_key", apiKey)
+		v.Set("providers.openai.api_key", apiKey)
 	}
 
-	// Read config file
 	if err := v.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if errors.As(err, &configFileNotFoundError) {
-			// Config file not found, create default config
 			if err := createDefaultConfig(); err != nil {
 				return nil, fmt.Errorf("failed to create default config: %w", err)
 			}
@@ -86,40 +90,84 @@ func Load() (*Config, error) {
 }
 
 func setDefaults(v *viper.Viper) {
-	// API defaults
-	v.SetDefault("provider", "openai")
-	v.SetDefault("api.base_url", "https://api.openai.com/v1")
-	v.SetDefault("api.model", "gpt-4-turbo-preview")
-	v.SetDefault("api.temperature", 0.7)
-	v.SetDefault("api.timeout", 60) // 60 seconds default
+	v.SetDefault("default.provider", "openai")
+	v.SetDefault("default.model", "gpt4")
 
-	// Tools defaults
 	v.SetDefault("tools.auto_approve_tools", []string{"read_file", "list_directory", "list_tools", "git_ls_files", "git_grep"})
 	v.SetDefault("tools.auto_approve_commands", []string{})
 	v.SetDefault("tools.max_output_size", 50000)
 	v.SetDefault("tools.command_timeout", 10*time.Minute)
 
-	// Context defaults
 	v.SetDefault("context.max_messages", 50)
 	v.SetDefault("context.max_tokens", 65535)
 	v.SetDefault("context.compaction_ratio", 0.5)
 	v.SetDefault("context.auto_compact", true)
 }
 
-func (c *Config) Validate() error {
-	if c.API.APIKey == "" {
-		return ErrMissingAPIKey
+// ActiveProvider returns the name and config of the currently active provider.
+func (c *Config) ActiveProvider() (string, *ProviderConfig, error) {
+	name := c.Default.Provider
+	p, ok := c.Providers[name]
+	if !ok {
+		return "", nil, fmt.Errorf("provider %q not found in config", name)
 	}
-	if c.API.Model == "" {
-		return ErrMissingModel
-	}
-	return nil
+	return name, &p, nil
 }
 
-var (
-	ErrMissingAPIKey = &ConfigError{"API key is required"}
-	ErrMissingModel  = &ConfigError{"Model name is required"}
-)
+// ActiveModel returns the name and config of the currently active model.
+func (c *Config) ActiveModel() (string, *ModelConfig, error) {
+	_, provider, err := c.ActiveProvider()
+	if err != nil {
+		return "", nil, err
+	}
+	name := c.Default.Model
+	m, ok := provider.Models[name]
+	if !ok {
+		return "", nil, fmt.Errorf("model %q not found in provider %q", name, c.Default.Provider)
+	}
+	return name, &m, nil
+}
+
+// FindModel searches all providers for a model by name.
+// Returns the provider name, provider config, and model config.
+func (c *Config) FindModel(modelName string) (string, *ProviderConfig, *ModelConfig, error) {
+	for provName, prov := range c.Providers {
+		if m, ok := prov.Models[modelName]; ok {
+			p := prov
+			mc := m
+			return provName, &p, &mc, nil
+		}
+	}
+	return "", nil, nil, fmt.Errorf("model %q not found in any provider", modelName)
+}
+
+// AllModelNames returns all model names across all providers, with their provider name.
+func (c *Config) AllModelNames() []struct{ Provider, Model string } {
+	var names []struct{ Provider, Model string }
+	for provName, prov := range c.Providers {
+		for modelName := range prov.Models {
+			names = append(names, struct{ Provider, Model string }{provName, modelName})
+		}
+	}
+	return names
+}
+
+func (c *Config) Validate() error {
+	if len(c.Providers) == 0 {
+		return &ConfigError{"no providers configured"}
+	}
+	_, provider, err := c.ActiveProvider()
+	if err != nil {
+		return err
+	}
+	if provider.APIKey == "" {
+		return ErrMissingAPIKey
+	}
+	_, _, err = c.ActiveModel()
+	return err
+}
+
+var ErrMissingAPIKey = &ConfigError{"API key is required"}
 
 type ConfigError struct {
 	Message string
@@ -133,29 +181,32 @@ func createDefaultConfig() error {
 	configDir := filepath.Join(os.Getenv("HOME"), ".config", "ashron")
 	configFile := filepath.Join(configDir, "ashron.yaml")
 
-	// Create config directory if it doesn't exist
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Default configuration content
 	defaultConfig := `# Ashron Configuration File
 
-# Provider settings (openai, anthropic, custom)
-provider: openai
+# Active provider and model
+default:
+  provider: openai
+  model: gpt4
 
-# API Configuration
-api:
-  base_url: https://api.openai.com/v1
-  # Set your API key here or use OPENAI_API_KEY environment variable
-  # api_key: YOUR_API_KEY_HERE
-  model: gpt-4-turbo-preview
-  temperature: 0.7
-  timeout: 60  # API request timeout in seconds
+# Provider definitions
+providers:
+  openai:
+    type: openai-compat
+    base_url: https://api.openai.com/v1
+    # Set your API key here or use OPENAI_API_KEY environment variable
+    # api_key: YOUR_API_KEY_HERE
+    timeout: 5m
+    models:
+      gpt4:
+        model: gpt-4-turbo-preview
+        temperature: 0.7
 
 # Tools Configuration
 tools:
-  # Commands that don't require approval
   auto_approve_tools:
     - read_file
     - list_directory
@@ -164,18 +215,17 @@ tools:
     - git_grep
   auto_approve_commands:
     - /^git add .*$/
-  max_output_size: 50000  # Maximum bytes for command output
+  max_output_size: 50000
   command_timeout: 10m
 
 # Context Management
 context:
   max_messages: 50
   max_tokens: 65535
-  compaction_ratio: 0.5  # Compact when context uses more than 50 percent of max tokens
+  compaction_ratio: 0.5
   auto_compact: true
 `
 
-	// Write the default config file
 	if err := os.WriteFile(configFile, []byte(defaultConfig), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}

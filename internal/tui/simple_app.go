@@ -25,7 +25,9 @@ import (
 // SimpleModel represents the simplified streaming application state
 type SimpleModel struct {
 	// Configuration
-	config *config.Config
+	config              *config.Config
+	currentProviderName string
+	currentModelName    string
 
 	// API client
 	apiClient *api.Client
@@ -75,8 +77,17 @@ type SimpleModel struct {
 
 // NewSimpleModel creates a new simplified application model
 func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
+	provName, provCfg, err := cfg.ActiveProvider()
+	if err != nil {
+		return nil, err
+	}
+	modelName, modelCfg, err := cfg.ActiveModel()
+	if err != nil {
+		return nil, err
+	}
+
 	// Create API client
-	apiClient := api.NewClient(&cfg.API, &cfg.Context)
+	apiClient := api.NewClient(provCfg, modelCfg, &cfg.Context)
 
 	// Create a context manager
 	ctxMgr := contextmgr.NewManager(&cfg.Context)
@@ -129,20 +140,36 @@ You have access to tools for file operations and command execution. Always ask f
 	commandRegistry := NewCommandRegistry()
 
 	return &SimpleModel{
-		config:          cfg,
-		apiClient:       apiClient,
-		textarea:        ta,
-		spinner:         sp,
-		viewport:        vp,
-		session:         session,
-		messages:        session.Messages,
-		contextMgr:      ctxMgr,
-		toolExec:        toolExec,
-		statusMsg:       "Ready",
-		ready:           true,
-		commandRegistry: commandRegistry,
-		displayContent:  []string{welcomeMsg, helpMsg, ""},
+		config:              cfg,
+		currentProviderName: provName,
+		currentModelName:    modelName,
+		apiClient:           apiClient,
+		textarea:            ta,
+		spinner:             sp,
+		viewport:            vp,
+		session:             session,
+		messages:            session.Messages,
+		contextMgr:          ctxMgr,
+		toolExec:            toolExec,
+		statusMsg:           "Ready",
+		ready:               true,
+		commandRegistry:     commandRegistry,
+		displayContent:      []string{welcomeMsg, helpMsg, ""},
 	}, nil
+}
+
+// switchModel switches to a named model (searching all providers).
+func (m *SimpleModel) switchModel(modelName string) error {
+	provName, provCfg, modelCfg, err := m.config.FindModel(modelName)
+	if err != nil {
+		return err
+	}
+	m.config.Default.Provider = provName
+	m.config.Default.Model = modelName
+	m.currentProviderName = provName
+	m.currentModelName = modelName
+	m.apiClient = api.NewClient(provCfg, modelCfg, &m.config.Context)
+	return nil
 }
 
 // Init initializes the model
@@ -420,7 +447,7 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 
 	m.textarea.SetValue("")
 
-	cmd, ok := m.commandRegistry.GetCommand(input)
+	cmd, ok := m.commandRegistry.GetCommand(parts[0])
 	if !ok {
 		errorMsg := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
@@ -434,21 +461,33 @@ func (m *SimpleModel) handleCommand(input string) tea.Cmd {
 
 // RenderConfig showConfig displays current configuration
 func (m *SimpleModel) RenderConfig() tea.Cmd {
+	_, provCfg, _ := m.config.ActiveProvider()
+	_, modelCfg, _ := m.config.ActiveModel()
+
+	var temperature float32
+	var modelStr, timeout string
+	if modelCfg != nil {
+		temperature = modelCfg.Temperature
+		modelStr = modelCfg.Model
+	}
+	if provCfg != nil {
+		timeout = provCfg.Timeout.String()
+	}
+
 	configData := fmt.Sprintf(`Current Configuration:
   Provider: %s
-  Model: %s
-  Max Tokens: %d
+  Model alias: %s (%s)
   Temperature: %.2f
-  API Timeout: %v
-  Auto-Compact: %v
-  Context Limit: %d tokens`,
-		m.config.Provider,
-		m.config.API.Model,
+  API Timeout: %s
+  Max Tokens: %d
+  Auto-Compact: %v`,
+		m.currentProviderName,
+		m.currentModelName,
+		modelStr,
+		temperature,
+		timeout,
 		m.config.Context.MaxTokens,
-		m.config.API.Temperature,
-		m.config.API.Timeout,
 		m.config.Context.AutoCompact,
-		m.config.Context.MaxTokens,
 	)
 
 	configDisplay := lipgloss.NewStyle().

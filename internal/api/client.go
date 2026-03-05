@@ -17,7 +17,8 @@ import (
 
 // Client handles communication with the OpenAI-compatible API
 type Client struct {
-	apiConfig     *config.APIConfig
+	providerCfg   *config.ProviderConfig
+	modelCfg      *config.ModelConfig
 	contextConfig *config.ContextConfig
 
 	httpClient *http.Client
@@ -25,22 +26,23 @@ type Client struct {
 }
 
 // NewClient creates a new API client
-func NewClient(apiConfig *config.APIConfig, contextConfig *config.ContextConfig) *Client {
-	timeout := apiConfig.Timeout
+func NewClient(providerCfg *config.ProviderConfig, modelCfg *config.ModelConfig, contextConfig *config.ContextConfig) *Client {
+	timeout := providerCfg.Timeout
 	if timeout == 0 {
-		timeout = 5 * time.Minute // Default value
+		timeout = 5 * time.Minute
 	}
 
 	slog.Info("Creating API client",
 		slog.Duration("timeout", timeout))
 
 	return &Client{
-		apiConfig:     apiConfig,
+		providerCfg:   providerCfg,
+		modelCfg:      modelCfg,
 		contextConfig: contextConfig,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		baseURL: strings.TrimSuffix(apiConfig.BaseURL, "/"),
+		baseURL: strings.TrimSuffix(providerCfg.BaseURL, "/"),
 	}
 }
 
@@ -60,7 +62,7 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiConfig.APIKey)
+	req.Header.Set("Authorization", "Bearer "+c.providerCfg.APIKey)
 
 	return req, nil
 }
@@ -68,9 +70,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 // StreamChatCompletionWithTools sends a streaming request with tool support
 func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (<-chan StreamEvent, error) {
 	req := &ChatCompletionRequest{
-		Model:       c.apiConfig.Model,
+		Model:       c.modelCfg.Model,
 		Messages:    messages,
-		Temperature: c.apiConfig.Temperature,
+		Temperature: c.modelCfg.Temperature,
 		MaxTokens:   c.contextConfig.MaxTokens,
 		Tools:       tools,
 		Stream:      true,
