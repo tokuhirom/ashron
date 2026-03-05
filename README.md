@@ -156,6 +156,19 @@ Ashron can discover local skills from:
 - `$XDG_CONFIG_HOME/ashron/skills`
 - `~/.config/ashron/skills`
 
+Each skill must be placed in its own directory and include `SKILL.md` with YAML frontmatter:
+
+```md
+---
+name: my-skill
+description: Short plain-text description of when this skill should be used.
+---
+```
+
+`name` must be lowercase kebab-case (`[a-z0-9-]`, max 64 chars). Invalid skills are ignored.
+
+At startup, discovered skill `name`/`description` metadata is injected into the system prompt.
+
 When running `/init`, generated `AGENTS.md` now includes a `Skills` section listing discovered skills and their `SKILL.md` paths.
 
 ## Sandboxing
