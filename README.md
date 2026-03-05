@@ -119,6 +119,13 @@ context:
 ### Command Execution
 - **execute_command** - Execute shell commands with timeout protection and OS sandboxing (`sandbox-exec` on macOS, `bwrap` on Linux)
 
+### Subagent
+- **spawn_subagent** - Start a background subagent with an initial prompt
+- **send_subagent_input** - Send additional input to an existing subagent
+- **wait_subagent** - Wait for subagent completion and retrieve current result
+- **list_subagents** - List subagents and their status
+- **close_subagent** - Close a subagent and release resources
+
 ## Sandboxing
 
 `execute_command` uses an OS-specific sandbox in `tools.sandbox_mode: auto`.

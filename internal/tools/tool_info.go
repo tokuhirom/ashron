@@ -104,6 +104,84 @@ func GetAllTools() []ToolInfo {
 			callback: ListTools,
 		},
 		{
+			Name:        "spawn_subagent",
+			Description: "Spawn a subagent with an initial prompt",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"prompt": {
+						Type:        "string",
+						Description: "Initial prompt for the subagent",
+					},
+				},
+				Required: []string{"prompt"},
+			},
+			callback: SpawnSubagent,
+		},
+		{
+			Name:        "send_subagent_input",
+			Description: "Send additional input to an existing subagent",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"id": {
+						Type:        "string",
+						Description: "Subagent ID",
+					},
+					"input": {
+						Type:        "string",
+						Description: "Input text to send",
+					},
+				},
+				Required: []string{"id", "input"},
+			},
+			callback: SendSubagentInput,
+		},
+		{
+			Name:        "wait_subagent",
+			Description: "Wait for a subagent to finish and return its latest status/output",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"id": {
+						Type:        "string",
+						Description: "Subagent ID",
+					},
+					"timeout_seconds": {
+						Type:        "integer",
+						Description: "How many seconds to wait (default: 30)",
+					},
+				},
+				Required: []string{"id"},
+			},
+			callback: WaitSubagent,
+		},
+		{
+			Name:        "list_subagents",
+			Description: "List currently known subagents and their status",
+			Parameters: api.FunctionParameters{
+				Type:       "object",
+				Properties: map[string]api.FunctionProperty{},
+				Required:   []string{},
+			},
+			callback: ListSubagents,
+		},
+		{
+			Name:        "close_subagent",
+			Description: "Close a subagent and release its resources",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"id": {
+						Type:        "string",
+						Description: "Subagent ID",
+					},
+				},
+				Required: []string{"id"},
+			},
+			callback: CloseSubagent,
+		},
+		{
 			Name:        "git_grep",
 			Description: "Search for a pattern in git repository files",
 			Parameters: api.FunctionParameters{

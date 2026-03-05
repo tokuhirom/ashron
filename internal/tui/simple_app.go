@@ -99,6 +99,7 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 
 	// Create tool executor
 	toolExec := tools.NewExecutor(&cfg.Tools)
+	tools.ConfigureSubagentRuntime(apiClient, &cfg.Context)
 
 	// Create UI components
 	ta := textarea.New()
@@ -186,6 +187,7 @@ func (m *SimpleModel) switchModel(modelName string) error {
 	m.currentProviderName = provName
 	m.currentModelName = modelName
 	m.apiClient = api.NewClient(provCfg, modelCfg, &m.config.Context)
+	tools.ConfigureSubagentRuntime(m.apiClient, &m.config.Context)
 	return nil
 }
 
