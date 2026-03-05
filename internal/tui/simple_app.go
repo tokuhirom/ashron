@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -64,6 +65,7 @@ type SimpleModel struct {
 	// Conversation state
 	waitingForApproval bool
 	pendingToolCalls   []api.ToolCall
+	showApprovalDetail bool
 
 	// Current streaming message
 	currentMessage string
@@ -477,6 +479,9 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						Render("✗ Tool execution cancelled")
 					m.AddDisplayContent(cancelMsg, "")
 					return m, nil
+				case "d", "D":
+					m.showApprovalDetail = !m.showApprovalDetail
+					return m, nil
 				}
 			}
 		}
@@ -760,7 +765,7 @@ func (m *SimpleModel) renderFooter() string {
 		b.WriteString("\n")
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
-			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
+			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel, [d] to toggle details."))
 		b.WriteString("\n")
 	}
 
@@ -820,7 +825,23 @@ func (m *SimpleModel) renderApprovalPanel() string {
 			fmt.Fprintf(&sb, "  ... and %d more", len(calls)-maxItems)
 			break
 		}
-		fmt.Fprintf(&sb, "  %d. %s", i+1, summarizeToolForApproval(tc))
+		summary := summarizeToolForApproval(tc)
+		why := approvalWhy(tc)
+		danger, reason := approvalDanger(tc)
+		if danger {
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3333")).Bold(true).Render(fmt.Sprintf("  %d. [DANGER] %s", i+1, summary)))
+			sb.WriteString("\n")
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FF7F50")).Render("     reason: " + reason))
+		} else {
+			fmt.Fprintf(&sb, "  %d. %s", i+1, summary)
+		}
+
+		sb.WriteString("\n")
+		sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#A0A0A0")).Render("     why: " + why))
+		if m.showApprovalDetail {
+			sb.WriteString("\n")
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render("     args: " + truncateForApproval(tc.Function.Arguments)))
+		}
 		if i < len(calls)-1 && i < maxItems-1 {
 			sb.WriteString("\n")
 		}
@@ -829,7 +850,6 @@ func (m *SimpleModel) renderApprovalPanel() string {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#FFA500")).
-		Foreground(lipgloss.Color("#FAFAFA")).
 		Padding(0, 1).
 		Render(sb.String())
 }
@@ -879,6 +899,86 @@ func summarizeToolForApproval(tc api.ToolCall) string {
 		oneLiner = tc.Function.Name
 	}
 	return oneLiner
+}
+
+func approvalWhy(tc api.ToolCall) string {
+	switch tc.Function.Name {
+	case "execute_command":
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Command) != "" {
+			mode := strings.ToLower(tools.EffectiveSandboxMode(&config.ToolsConfig{}, args))
+			if mode == "off" {
+				return "Runs a shell command without sandbox isolation."
+			}
+			return "Runs a shell command in the workspace sandbox."
+		}
+		return "Runs a shell command."
+	case "write_file":
+		return "Writes file contents; existing files are backed up before overwrite."
+	case "read_file":
+		return "Reads file contents."
+	case "list_directory":
+		return "Lists files in a directory."
+	case "fetch_url":
+		return "Fetches content from a remote URL."
+	case "read_skill":
+		return "Reads installed skill instructions."
+	default:
+		return "Uses an internal tool."
+	}
+}
+
+func approvalDanger(tc api.ToolCall) (bool, string) {
+	switch tc.Function.Name {
+	case "execute_command":
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return true, "Could not parse command arguments safely."
+		}
+		if strings.EqualFold(tools.EffectiveSandboxMode(&config.ToolsConfig{}, args), "off") {
+			return true, "Command requests sandbox_mode: off."
+		}
+		return commandDanger(args.Command)
+	case "write_file":
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return true, "Could not parse target path."
+		}
+		path := filepath.Clean(args.Path)
+		dangerRoots := []string{"/etc", "/usr", "/bin", "/sbin", "/lib", "/boot", "/System"}
+		for _, root := range dangerRoots {
+			if path == root || strings.HasPrefix(path, root+"/") {
+				return true, "Writes to system-managed path: " + root
+			}
+		}
+	}
+	return false, ""
+}
+
+func commandDanger(command string) (bool, string) {
+	lowered := strings.ToLower(strings.TrimSpace(command))
+	dangerPatterns := []struct {
+		pattern string
+		reason  string
+	}{
+		{"rm -rf", "Recursive delete detected."},
+		{"git reset --hard", "Hard reset discards local changes."},
+		{"mkfs", "Filesystem formatting command detected."},
+		{"dd if=", "Raw disk write command detected."},
+		{"shutdown", "System shutdown command detected."},
+		{"reboot", "System reboot command detected."},
+		{"chmod -r", "Recursive permission change detected."},
+		{"chown -r", "Recursive ownership change detected."},
+		{"| sh", "Piped shell execution detected."},
+	}
+	for _, p := range dangerPatterns {
+		if strings.Contains(lowered, p.pattern) {
+			return true, p.reason
+		}
+	}
+	return false, ""
 }
 
 func truncateForApproval(s string) string {
