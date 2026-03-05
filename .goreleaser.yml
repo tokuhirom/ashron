@@ -1,0 +1,17 @@
+version: 2
+
+project_name: ashron
+
+builds:
+  - id: ashron
+    main: ./cmd/ashron
+    binary: ashron
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - id: ashron
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
