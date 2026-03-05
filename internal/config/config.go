@@ -1,110 +1,229 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Default   DefaultConfig             `mapstructure:"default"`
-	Providers map[string]ProviderConfig `mapstructure:"providers"`
-	Tools     ToolsConfig               `mapstructure:"tools"`
-	Context   ContextConfig             `mapstructure:"context"`
+	Default   DefaultConfig
+	Providers map[string]ProviderConfig
+	Tools     ToolsConfig
+	Context   ContextConfig
 }
 
 type DefaultConfig struct {
-	Provider string `mapstructure:"provider"`
-	Model    string `mapstructure:"model"`
+	Provider string
+	Model    string
 }
 
 type ProviderConfig struct {
-	Type    string                 `mapstructure:"type"`
-	BaseURL string                 `mapstructure:"base_url"`
-	APIKey  string                 `mapstructure:"api_key"`
-	Timeout time.Duration          `mapstructure:"timeout"`
-	Models  map[string]ModelConfig `mapstructure:"models"`
+	Type    string
+	BaseURL string
+	APIKey  string
+	Timeout time.Duration
+	Models  map[string]ModelConfig
 }
 
 type ModelConfig struct {
-	Model       string  `mapstructure:"model"`
-	Temperature float32 `mapstructure:"temperature"`
+	Model       string
+	Temperature float32
 }
 
 type ToolsConfig struct {
-	AutoApproveTools    []string      `mapstructure:"auto_approve_tools"`
-	AutoApproveCommands []string      `mapstructure:"auto_approve_commands"`
-	MaxOutputSize       int           `mapstructure:"max_output_size"`
-	CommandTimeout      time.Duration `mapstructure:"command_timeout"`
-	SandboxMode         string        `mapstructure:"sandbox_mode"`
-	Yolo                bool          `mapstructure:"-"`
+	AutoApproveTools    []string
+	AutoApproveCommands []string
+	MaxOutputSize       int
+	CommandTimeout      time.Duration
+	SandboxMode         string
+	Yolo                bool
 }
 
 type ContextConfig struct {
-	MaxMessages     int     `mapstructure:"max_messages"`
-	MaxTokens       int     `mapstructure:"max_tokens"`
-	CompactionRatio float32 `mapstructure:"compaction_ratio"`
-	AutoCompact     bool    `mapstructure:"auto_compact"`
+	MaxMessages     int
+	MaxTokens       int
+	CompactionRatio float32
+	AutoCompact     bool
+}
+
+// rawConfig mirrors Config but uses string for Duration fields to support YAML parsing.
+type rawConfig struct {
+	Default   rawDefaultConfig             `yaml:"default"`
+	Providers map[string]rawProviderConfig `yaml:"providers"`
+	Tools     rawToolsConfig               `yaml:"tools"`
+	Context   rawContextConfig             `yaml:"context"`
+}
+
+type rawDefaultConfig struct {
+	Provider string `yaml:"provider"`
+	Model    string `yaml:"model"`
+}
+
+type rawProviderConfig struct {
+	Type    string                    `yaml:"type"`
+	BaseURL string                    `yaml:"base_url"`
+	APIKey  string                    `yaml:"api_key"`
+	Timeout string                    `yaml:"timeout"`
+	Models  map[string]rawModelConfig `yaml:"models"`
+}
+
+type rawModelConfig struct {
+	Model       string  `yaml:"model"`
+	Temperature float32 `yaml:"temperature"`
+}
+
+type rawToolsConfig struct {
+	AutoApproveTools    []string `yaml:"auto_approve_tools"`
+	AutoApproveCommands []string `yaml:"auto_approve_commands"`
+	MaxOutputSize       int      `yaml:"max_output_size"`
+	CommandTimeout      string   `yaml:"command_timeout"`
+	SandboxMode         string   `yaml:"sandbox_mode"`
+}
+
+type rawContextConfig struct {
+	MaxMessages     int     `yaml:"max_messages"`
+	MaxTokens       int     `yaml:"max_tokens"`
+	CompactionRatio float32 `yaml:"compaction_ratio"`
+	AutoCompact     *bool   `yaml:"auto_compact"`
 }
 
 func Load() (*Config, error) {
-	v := viper.New()
+	cfgPath := configFilePath()
 
-	setDefaults(v)
-
-	v.SetConfigName("ashron")
-	v.SetConfigType("yaml")
-
-	if configDir := os.Getenv("XDG_CONFIG_HOME"); configDir != "" {
-		v.AddConfigPath(filepath.Join(configDir, "ashron"))
-	}
-	v.AddConfigPath(filepath.Join(os.Getenv("HOME"), ".config", "ashron"))
-
-	v.SetEnvPrefix("ASHRON")
-	v.AutomaticEnv()
-
-	// Convenience: support OPENAI_API_KEY env var for the openai provider
-	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		v.Set("providers.openai.api_key", apiKey)
-	}
-
-	if err := v.ReadInConfig(); err != nil {
-		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if errors.As(err, &configFileNotFoundError) {
-			if err := createDefaultConfig(); err != nil {
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err := createDefaultConfig(cfgPath); err != nil {
 				return nil, fmt.Errorf("failed to create default config: %w", err)
 			}
-			return nil, fmt.Errorf("config file not found. Created default config at ~/.config/ashron/ashron.yaml. Please set your API key and run again")
+			return nil, fmt.Errorf("config file not found. Created default config at %s. Please set your API key and run again", cfgPath)
 		}
-		return nil, fmt.Errorf("failed to read config file '%s': %w", v.ConfigFileUsed(), err)
+		return nil, fmt.Errorf("failed to read config file '%s': %w", cfgPath, err)
 	}
 
-	var config Config
-	if err := v.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config from '%s': %w", v.ConfigFileUsed(), err)
+	var raw rawConfig
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("failed to parse config file '%s': %w", cfgPath, err)
 	}
 
-	return &config, nil
+	applyDefaults(&raw)
+
+	// Apply OPENAI_API_KEY env var to openai provider if api_key is unset.
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		if prov, ok := raw.Providers["openai"]; ok && prov.APIKey == "" {
+			prov.APIKey = apiKey
+			raw.Providers["openai"] = prov
+		}
+	}
+
+	return convertConfig(raw)
 }
 
-func setDefaults(v *viper.Viper) {
-	v.SetDefault("default.provider", "openai")
-	v.SetDefault("default.model", "gpt4")
+func configFilePath() string {
+	if configDir := os.Getenv("XDG_CONFIG_HOME"); configDir != "" {
+		return filepath.Join(configDir, "ashron", "ashron.yaml")
+	}
+	return filepath.Join(os.Getenv("HOME"), ".config", "ashron", "ashron.yaml")
+}
 
-	v.SetDefault("tools.auto_approve_tools", []string{"read_file", "list_directory", "list_tools", "git_ls_files", "git_grep"})
-	v.SetDefault("tools.auto_approve_commands", []string{})
-	v.SetDefault("tools.max_output_size", 50000)
-	v.SetDefault("tools.command_timeout", 10*time.Minute)
-	v.SetDefault("tools.sandbox_mode", "auto")
+func applyDefaults(raw *rawConfig) {
+	if raw.Default.Provider == "" {
+		raw.Default.Provider = "openai"
+	}
+	if raw.Default.Model == "" {
+		raw.Default.Model = "gpt4"
+	}
+	if len(raw.Tools.AutoApproveTools) == 0 {
+		raw.Tools.AutoApproveTools = []string{"read_file", "list_directory", "list_tools", "git_ls_files", "git_grep"}
+	}
+	if raw.Tools.MaxOutputSize == 0 {
+		raw.Tools.MaxOutputSize = 50000
+	}
+	if raw.Tools.CommandTimeout == "" {
+		raw.Tools.CommandTimeout = "10m"
+	}
+	if raw.Tools.SandboxMode == "" {
+		raw.Tools.SandboxMode = "auto"
+	}
+	if raw.Context.MaxMessages == 0 {
+		raw.Context.MaxMessages = 50
+	}
+	if raw.Context.MaxTokens == 0 {
+		raw.Context.MaxTokens = 65535
+	}
+	if raw.Context.CompactionRatio == 0 {
+		raw.Context.CompactionRatio = 0.5
+	}
+}
 
-	v.SetDefault("context.max_messages", 50)
-	v.SetDefault("context.max_tokens", 65535)
-	v.SetDefault("context.compaction_ratio", 0.5)
-	v.SetDefault("context.auto_compact", true)
+func convertConfig(raw rawConfig) (*Config, error) {
+	cmdTimeout, err := parseDuration(raw.Tools.CommandTimeout, 10*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tools.command_timeout: %w", err)
+	}
+
+	autoCompact := true
+	if raw.Context.AutoCompact != nil {
+		autoCompact = *raw.Context.AutoCompact
+	}
+
+	providers := make(map[string]ProviderConfig, len(raw.Providers))
+	for name, rp := range raw.Providers {
+		timeout, err := parseDuration(rp.Timeout, 5*time.Minute)
+		if err != nil {
+			return nil, fmt.Errorf("invalid providers.%s.timeout: %w", name, err)
+		}
+		models := make(map[string]ModelConfig, len(rp.Models))
+		for mname, rm := range rp.Models {
+			models[mname] = ModelConfig{
+				Model:       rm.Model,
+				Temperature: rm.Temperature,
+			}
+		}
+		providers[name] = ProviderConfig{
+			Type:    rp.Type,
+			BaseURL: rp.BaseURL,
+			APIKey:  rp.APIKey,
+			Timeout: timeout,
+			Models:  models,
+		}
+	}
+
+	return &Config{
+		Default: DefaultConfig{
+			Provider: raw.Default.Provider,
+			Model:    raw.Default.Model,
+		},
+		Providers: providers,
+		Tools: ToolsConfig{
+			AutoApproveTools:    raw.Tools.AutoApproveTools,
+			AutoApproveCommands: raw.Tools.AutoApproveCommands,
+			MaxOutputSize:       raw.Tools.MaxOutputSize,
+			CommandTimeout:      cmdTimeout,
+			SandboxMode:         raw.Tools.SandboxMode,
+		},
+		Context: ContextConfig{
+			MaxMessages:     raw.Context.MaxMessages,
+			MaxTokens:       raw.Context.MaxTokens,
+			CompactionRatio: raw.Context.CompactionRatio,
+			AutoCompact:     autoCompact,
+		},
+	}, nil
+}
+
+func parseDuration(s string, defaultVal time.Duration) (time.Duration, error) {
+	if s == "" {
+		return defaultVal, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, err
+	}
+	return d, nil
 }
 
 // ActiveProvider returns the name and config of the currently active provider.
@@ -132,7 +251,6 @@ func (c *Config) ActiveModel() (string, *ModelConfig, error) {
 }
 
 // FindModel searches all providers for a model by name.
-// Returns the provider name, provider config, and model config.
 func (c *Config) FindModel(modelName string) (string, *ProviderConfig, *ModelConfig, error) {
 	for provName, prov := range c.Providers {
 		if m, ok := prov.Models[modelName]; ok {
@@ -180,11 +298,8 @@ func (e *ConfigError) Error() string {
 	return e.Message
 }
 
-func createDefaultConfig() error {
-	configDir := filepath.Join(os.Getenv("HOME"), ".config", "ashron")
-	configFile := filepath.Join(configDir, "ashron.yaml")
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+func createDefaultConfig(cfgPath string) error {
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -230,7 +345,7 @@ context:
   auto_compact: true
 `
 
-	if err := os.WriteFile(configFile, []byte(defaultConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(defaultConfig), 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
