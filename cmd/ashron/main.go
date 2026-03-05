@@ -85,6 +85,7 @@ func main() {
 	defer logger.Close()
 
 	slog.Info("Starting Ashron", "version", version, "commit", commit)
+	tui.SetBuildInfo(version, commit, date)
 
 	// Load session for resume if requested
 	var sess *session.Session
