@@ -3,6 +3,22 @@
 ## [v2026.305.2](https://github.com/tokuhirom/ashron/compare/v2026.305.1...v2026.305.2) - 2026-03-05
 - feat: session persistence and resume by @tokuhirom in https://github.com/tokuhirom/ashron/pull/45
 - fix: set goreleaser main to cmd/ashron by @tokuhirom in https://github.com/tokuhirom/ashron/pull/47
+- feat: add fetch_url tool by @tokuhirom in https://github.com/tokuhirom/ashron/pull/49
+- feat: parse SKILL frontmatter and inject skill metadata by @tokuhirom in https://github.com/tokuhirom/ashron/pull/50
+- tui: compact tool execution display by @tokuhirom in https://github.com/tokuhirom/ashron/pull/51
+- feat: cancel in-flight API request on Escape key by @tokuhirom in https://github.com/tokuhirom/ashron/pull/52
+- tools: add read_skill for SKILL.md content by @tokuhirom in https://github.com/tokuhirom/ashron/pull/53
+- feat: show subagent progress in TUI and add get_subagent_log tool by @tokuhirom in https://github.com/tokuhirom/ashron/pull/54
+- tui: fix last assistant lines not visible when viewport is full by @tokuhirom in https://github.com/tokuhirom/ashron/pull/55
+- feat: run shell commands directly with ! prefix by @tokuhirom in https://github.com/tokuhirom/ashron/pull/57
+- tui: add Plan mode toggle via Shift+Tab by @tokuhirom in https://github.com/tokuhirom/ashron/pull/56
+- tui: show pending tool details near approval prompt by @tokuhirom in https://github.com/tokuhirom/ashron/pull/58
+- fix: restore mouse scroll and fix resume scroll-to-bottom by @tokuhirom in https://github.com/tokuhirom/ashron/pull/59
+- fix: allow typing in textarea while AI is processing by @tokuhirom in https://github.com/tokuhirom/ashron/pull/60
+
+## [v2026.305.2](https://github.com/tokuhirom/ashron/compare/v2026.305.1...v2026.305.2) - 2026-03-05
+- feat: session persistence and resume by @tokuhirom in https://github.com/tokuhirom/ashron/pull/45
+- fix: set goreleaser main to cmd/ashron by @tokuhirom in https://github.com/tokuhirom/ashron/pull/47
 
 ## [v2026.305.1](https://github.com/tokuhirom/ashron/compare/v2026.305.0...v2026.305.1) - 2026-03-05
 - Refactor config: provider/model hierarchy with /model switch command by @tokuhirom in https://github.com/tokuhirom/ashron/pull/27
