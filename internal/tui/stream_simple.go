@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -52,6 +53,7 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	m.statusMsg = "Thinking..."
 	m.currentMessage = ""
 	m.currentOperation = "Processing user message"
+	m.operationStartedAt = time.Now()
 	m.lastUserInput = input
 
 	// Add user message to display content
@@ -66,13 +68,20 @@ func (m *SimpleModel) cancelCurrentRequest() {
 	if m.cancelAPICall != nil {
 		m.cancelAPICall()
 		m.cancelAPICall = nil
+		cancelMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF7F50")).
+			Render("✗ Request cancelled")
+		m.AddDisplayContent(cancelMsg, "")
+	} else {
+		cancelMsg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF7F50")).
+			Render("✗ No cancellable API request")
+		m.AddDisplayContent(cancelMsg, "")
 	}
 	m.loading = false
 	m.statusMsg = "Cancelled"
-	cancelMsg := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FF7F50")).
-		Render("✗ Request cancelled")
-	m.AddDisplayContent(cancelMsg, "")
+	m.currentOperation = ""
+	m.operationStartedAt = time.Time{}
 }
 
 // processMessage handles the actual API call
