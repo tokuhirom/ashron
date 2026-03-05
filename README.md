@@ -118,6 +118,7 @@ context:
 
 - `/help` - Show available commands
 - `/clear` - Clear screen
+- `/new` - Start a new chat session
 - `/compact` - Manually compact conversation context
 - `/config` - Display current configuration
 - `/status` - Show runtime status (model, approvals, sandbox, cwd)
