@@ -17,9 +17,10 @@ import (
 )
 
 type toolExecutionMsg struct {
-	results []api.ToolResult
-	hasMore bool
-	output  string
+	results   []api.ToolResult
+	hasMore   bool
+	moreTools bool // true when more pending tool calls remain after this one
+	output    string
 }
 
 type errorMsg struct {
@@ -344,35 +345,40 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 	return StreamOutput{Content: output.String(), Usage: usage}
 }
 
-// executePendingTools executes approved tool calls (SimpleModel version)
-func (m *SimpleModel) executePendingTools() tea.Cmd {
+// executeNextTool executes the first pending tool call and returns a
+// toolExecutionMsg.  Tools are executed one at a time so that the TUI can
+// update currentOperation with the name of each tool as it runs.
+func (m *SimpleModel) executeNextTool() tea.Cmd {
+	if len(m.pendingToolCalls) == 0 {
+		return nil
+	}
+
+	// Pop the first pending tool call so the next iteration picks the next one.
+	tc := m.pendingToolCalls[0]
+	m.pendingToolCalls = m.pendingToolCalls[1:]
+	moreTools := len(m.pendingToolCalls) > 0
+
 	return func() tea.Msg {
 		var output strings.Builder
-		var results []api.ToolResult
 
-		for _, tc := range m.pendingToolCalls {
-			result := m.toolExec.Execute(tc)
-			results = append(results, result)
+		result := m.toolExec.Execute(tc)
 
-			// Keep tool result display compact; detailed output remains in tool messages.
-			if result.Error != nil {
-				output.WriteString(lipgloss.NewStyle().
-					Foreground(lipgloss.Color("#FF7F50")).
-					Render("tool error: " + tc.Function.Name))
-				output.WriteString("\n")
-			}
-
-			// Add tool result message
-			m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))
+		// Keep tool result display compact; detailed output remains in tool messages.
+		if result.Error != nil {
+			output.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF7F50")).
+				Render("tool error: " + tc.Function.Name))
+			output.WriteString("\n")
 		}
 
-		m.pendingToolCalls = nil
+		// Add tool result to the conversation history.
+		m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))
 
-		// Return the output and indicate we need to continue
 		return toolExecutionMsg{
-			results: results,
-			hasMore: true,
-			output:  output.String(),
+			results:   []api.ToolResult{result},
+			hasMore:   true, // always continue the conversation after tool execution
+			moreTools: moreTools,
+			output:    output.String(),
 		}
 	}
 }
