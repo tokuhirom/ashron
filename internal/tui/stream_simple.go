@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -111,8 +112,13 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 				// Cancelled by user - not an error worth reporting
 				return nil
 			}
-			slog.Error("Failed to start streaming", "error", err)
-			return errorMsg{error: err}
+			// Include the last message role to help diagnose which phase failed.
+			lastRole := ""
+			if n := len(m.messages); n > 0 {
+				lastRole = m.messages[n-1].Role
+			}
+			slog.Error("Failed to start streaming", "error", err, "lastMessageRole", lastRole)
+			return errorMsg{error: fmt.Errorf("%w (after %s message)", err, lastRole)}
 		}
 
 		// Start handling stream
