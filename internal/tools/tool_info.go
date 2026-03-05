@@ -182,6 +182,29 @@ func GetAllTools() []ToolInfo {
 			callback: CloseSubagent,
 		},
 		{
+			Name:        "fetch_url",
+			Description: "Fetch the content of a URL. HTML pages are automatically converted to plain text.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"url": {
+						Type:        "string",
+						Description: "The URL to fetch",
+					},
+					"raw": {
+						Type:        "boolean",
+						Description: "Return raw content without stripping HTML tags (default: false)",
+					},
+					"timeout_seconds": {
+						Type:        "integer",
+						Description: "Request timeout in seconds (default: 30)",
+					},
+				},
+				Required: []string{"url"},
+			},
+			callback: FetchURL,
+		},
+		{
 			Name:        "git_grep",
 			Description: "Search for a pattern in git repository files",
 			Parameters: api.FunctionParameters{
