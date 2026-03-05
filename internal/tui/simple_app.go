@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/gen2brain/beeep"
 	"github.com/tokuhirom/ashron/internal/agentsmd"
+	"github.com/tokuhirom/ashron/internal/plan"
 	"github.com/tokuhirom/ashron/internal/skills"
 
 	"github.com/tokuhirom/ashron/internal/api"
@@ -469,6 +470,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Auto-save session after assistant response
 		m.saveSession()
+		m.savePlanIfNeeded(msg.Content)
 
 		// Agent finished processing - send notification
 		m.sendCompletionNotification()
@@ -1049,6 +1051,29 @@ func (m *SimpleModel) sendCompletionNotification() {
 	if err := beeep.Notify(title, msg, ""); err != nil {
 		slog.Debug("Failed to send completion notification", "error", err)
 	}
+}
+
+func (m *SimpleModel) savePlanIfNeeded(content string) {
+	if m.collaborationMode != "plan" {
+		return
+	}
+	if strings.TrimSpace(content) == "" {
+		return
+	}
+
+	sessionID := ""
+	if m.sess != nil {
+		sessionID = m.sess.ID
+	}
+	path, err := plan.Save(sessionID, content)
+	if err != nil {
+		slog.Warn("Failed to save plan", "error", err)
+		return
+	}
+
+	m.AddDisplayContent(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render("Plan saved: " + path))
 }
 
 // AddDisplayContent appends content to displayContent and automatically scrolls to bottom

@@ -133,6 +133,8 @@ context:
 - `Tab` / `Up` / `Down` - Navigate command completion
 - `Esc` - Close command completion
 
+In `Plan` mode, assistant responses are automatically saved under `~/.local/share/ashron/plans/` (or `$XDG_DATA_HOME/ashron/plans`).
+
 ## Available Tools
 
 ### File Operations
