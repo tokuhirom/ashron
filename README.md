@@ -153,6 +153,7 @@ On startup (when sessions exist), Ashron shows an interactive session picker so 
 - **read_file** - Read contents of a file
 - **read_skill** - Read full `SKILL.md` content for an installed skill by name
 - **write_file** - Write content with change summary (`lines old->new, +/ -`), atomic apply, and overwrite backup
+- **apply_patch** - Apply minimal unified diff hunks with backup, failure location details, and retry hints
 - **list_directory** - List files in a directory
 
 ### Command Execution
