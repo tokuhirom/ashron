@@ -7,7 +7,7 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/alecthomas/kingpin/v2"
+	"github.com/alecthomas/kong"
 	"github.com/tokuhirom/ashron/internal/config"
 	"github.com/tokuhirom/ashron/internal/logger"
 	"github.com/tokuhirom/ashron/internal/tui"
@@ -19,19 +19,23 @@ var (
 	date    = "unknown"
 )
 
+var cli struct {
+	APIKey  string `help:"OpenAI API key (overrides config)" env:"OPENAI_API_KEY" name:"api-key"`
+	Model   string `help:"Model to use (overrides config)"`
+	BaseURL string `help:"API base URL (overrides config)" name:"base-url"`
+	Log     string `help:"Path to log file for debugging"`
+	Yolo    bool   `help:"Disable sandbox and require no tool approvals (dangerous)"`
+
+	Version kong.VersionFlag `help:"Show version and exit"`
+}
+
 func main() {
-	app := kingpin.New("ashron", "AI Coding Assistant\n\nAn interactive AI-powered coding assistant that helps with software engineering tasks.")
-	app.Version(fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date))
-	app.HelpFlag.Short('h')
-	app.Author("tokuhirom")
-
-	apiKey := app.Flag("api-key", "OpenAI API key (overrides config)").Envar("OPENAI_API_KEY").String()
-	model := app.Flag("model", "Model to use (overrides config)").String()
-	baseURL := app.Flag("base-url", "API base URL (overrides config)").String()
-	logFile := app.Flag("log", "Path to log file for debugging").String()
-	yolo := app.Flag("yolo", "Disable sandbox and require no tool approvals (dangerous)").Bool()
-
-	kingpin.MustParse(app.Parse(os.Args[1:]))
+	ctx := kong.Parse(&cli,
+		kong.Name("ashron"),
+		kong.Description("AI Coding Assistant\n\nAn interactive AI-powered coding assistant that helps with software engineering tasks."),
+		kong.Vars{"version": fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)},
+	)
+	_ = ctx
 
 	// Load configuration
 	cfg, err := loadConfig()
@@ -41,29 +45,28 @@ func main() {
 
 	// Override with command-line flags
 	provName := cfg.Default.Provider
-	if *model != "" {
-		// Find which provider has this model and switch to it
-		foundProv, _, _, err := cfg.FindModel(*model)
+	if cli.Model != "" {
+		foundProv, _, _, err := cfg.FindModel(cli.Model)
 		if err != nil {
 			log.Fatalf("Model not found: %v", err)
 		}
 		cfg.Default.Provider = foundProv
-		cfg.Default.Model = *model
+		cfg.Default.Model = cli.Model
 		provName = foundProv
 	}
-	if *apiKey != "" {
+	if cli.APIKey != "" {
 		if prov, ok := cfg.Providers[provName]; ok {
-			prov.APIKey = *apiKey
+			prov.APIKey = cli.APIKey
 			cfg.Providers[provName] = prov
 		}
 	}
-	if *baseURL != "" {
+	if cli.BaseURL != "" {
 		if prov, ok := cfg.Providers[provName]; ok {
-			prov.BaseURL = *baseURL
+			prov.BaseURL = cli.BaseURL
 			cfg.Providers[provName] = prov
 		}
 	}
-	if *yolo {
+	if cli.Yolo {
 		cfg.Tools.Yolo = true
 		cfg.Tools.SandboxMode = "off"
 	}
@@ -74,8 +77,8 @@ func main() {
 	}
 
 	// Setup logging
-	if err := logger.Setup(*logFile); err != nil {
-		log.Fatalf("Failed to setup logging: %v", err)
+	if err := logger.Setup(cli.Log); err != nil {
+		log.Fatalf("Failed to setup logging: %v\n", err)
 	}
 	defer logger.Close()
 
