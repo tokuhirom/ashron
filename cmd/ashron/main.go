@@ -39,14 +39,28 @@ func main() {
 	}
 
 	// Override with command-line flags
-	if *apiKey != "" {
-		cfg.API.APIKey = *apiKey
-	}
+	provName := cfg.Default.Provider
 	if *model != "" {
-		cfg.API.Model = *model
+		// Find which provider has this model and switch to it
+		foundProv, _, _, err := cfg.FindModel(*model)
+		if err != nil {
+			log.Fatalf("Model not found: %v", err)
+		}
+		cfg.Default.Provider = foundProv
+		cfg.Default.Model = *model
+		provName = foundProv
+	}
+	if *apiKey != "" {
+		if prov, ok := cfg.Providers[provName]; ok {
+			prov.APIKey = *apiKey
+			cfg.Providers[provName] = prov
+		}
 	}
 	if *baseURL != "" {
-		cfg.API.BaseURL = *baseURL
+		if prov, ok := cfg.Providers[provName]; ok {
+			prov.BaseURL = *baseURL
+			cfg.Providers[provName] = prov
+		}
 	}
 
 	// Validate configuration

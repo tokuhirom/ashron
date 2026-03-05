@@ -93,6 +93,42 @@ func NewCommandRegistry() *CommandRegistry {
 					return m.RenderConfig()
 				},
 			},
+			"/model": {
+				Name:        "/model",
+				Description: "Show or switch model. Usage: /model [name]",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					if len(args) == 0 {
+						var sb strings.Builder
+						fmt.Fprintf(&sb, "Current model: %s (provider: %s)\n\nAvailable models:\n", m.currentModelName, m.currentProviderName)
+						for _, entry := range m.config.AllModelNames() {
+							marker := "  "
+							if entry.Model == m.currentModelName {
+								marker = "* "
+							}
+							fmt.Fprintf(&sb, "%s%s (provider: %s)\n", marker, entry.Model, entry.Provider)
+						}
+						msg := lipgloss.NewStyle().
+							Foreground(lipgloss.Color("#626262")).
+							Render(sb.String())
+						m.AddDisplayContent(msg, "")
+						return nil
+					}
+
+					modelName := args[0]
+					if err := m.switchModel(modelName); err != nil {
+						errMsg := lipgloss.NewStyle().
+							Foreground(lipgloss.Color("#FF3333")).
+							Render(fmt.Sprintf("Error switching model: %v", err))
+						m.AddDisplayContent(errMsg, "")
+						return nil
+					}
+					successMsg := lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#04B575")).
+						Render(fmt.Sprintf("Switched to model: %s (provider: %s)", m.currentModelName, m.currentProviderName))
+					m.AddDisplayContent(successMsg, "")
+					return nil
+				},
+			},
 		},
 	}
 }
@@ -111,20 +147,17 @@ func cmdHelp(cr *CommandRegistry, m *SimpleModel) tea.Cmd {
 	}
 	sb.WriteString("\n")
 	sb.WriteString(`
-
 Keyboard Shortcuts:
   Ctrl+J     - Insert new line
   Enter      - Send message
   Ctrl+C     - Cancel current operation or exit
   Ctrl+L     - Clear screen
-  y/n        - Approve/Cancel tool execution (when prompted)
-  Enter      - New line in input`)
+  y/n        - Approve/Cancel tool execution (when prompted)`)
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render(sb.String())
 
-	// Add help text to display content
 	lines := strings.Split(helpText, "\n")
 	for _, line := range lines {
 		m.AddDisplayContent(line)
