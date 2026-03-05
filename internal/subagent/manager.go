@@ -32,6 +32,13 @@ type AgentSnapshot struct {
 	LastError  string      `json:"last_error,omitempty"`
 }
 
+// AgentSummary is a lightweight view of a running subagent, used for live status display.
+type AgentSummary struct {
+	ID       string
+	Status   AgentStatus
+	LastLine string
+}
+
 type managerAgent struct {
 	id        string
 	status    AgentStatus
@@ -42,6 +49,10 @@ type managerAgent struct {
 	err       string
 	cancel    context.CancelFunc
 	done      chan struct{}
+
+	// logMu guards logBuf; written by the stream goroutine, read by external callers.
+	logMu  sync.Mutex
+	logBuf strings.Builder
 }
 
 type Manager struct {
@@ -184,6 +195,49 @@ func (m *Manager) Close(id string) error {
 	return nil
 }
 
+// GetLog returns the accumulated streaming log for the given agent (may be partial if still running).
+func (m *Manager) GetLog(id string) (string, error) {
+	m.mu.RLock()
+	ag, ok := m.agents[id]
+	m.mu.RUnlock()
+	if !ok {
+		return "", fmt.Errorf("subagent not found: %s", id)
+	}
+	ag.logMu.Lock()
+	log := ag.logBuf.String()
+	ag.logMu.Unlock()
+	return log, nil
+}
+
+// GetRunningSummary returns a lightweight summary of all currently running agents.
+func (m *Manager) GetRunningSummary() []AgentSummary {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var out []AgentSummary
+	for _, ag := range m.agents {
+		if ag.status == AgentStatusRunning {
+			ag.logMu.Lock()
+			log := ag.logBuf.String()
+			ag.logMu.Unlock()
+			out = append(out, AgentSummary{
+				ID:       ag.id,
+				Status:   ag.status,
+				LastLine: lastNonEmptyLine(log),
+			})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+func lastNonEmptyLine(s string) string {
+	s = strings.TrimRight(s, "\n")
+	if idx := strings.LastIndex(s, "\n"); idx >= 0 {
+		s = s[idx+1:]
+	}
+	return strings.TrimSpace(s)
+}
+
 func (m *Manager) startRun(id string) error {
 	m.mu.Lock()
 	ag, ok := m.agents[id]
@@ -230,6 +284,9 @@ func (m *Manager) startRun(id string) error {
 			for _, ch := range ev.Data.Choices {
 				if ch.Delta.Content != "" {
 					sb.WriteString(ch.Delta.Content)
+					ag.logMu.Lock()
+					ag.logBuf.WriteString(ch.Delta.Content)
+					ag.logMu.Unlock()
 				}
 			}
 		}

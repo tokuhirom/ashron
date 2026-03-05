@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textarea"
@@ -90,6 +91,9 @@ type SimpleModel struct {
 
 	// Cancel function for the current API call
 	cancelAPICall context.CancelFunc
+
+	// Live subagent summaries for display, updated by a periodic tick
+	subagentSummary []tools.SubagentSummary
 }
 
 // NewSimpleModel creates a new simplified application model.
@@ -284,6 +288,15 @@ func (m *SimpleModel) switchModel(modelName string) error {
 	return nil
 }
 
+// subagentTickMsg is sent by the periodic subagent status ticker.
+type subagentTickMsg time.Time
+
+func subagentTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return subagentTickMsg(t)
+	})
+}
+
 // Init initializes the model
 func (m *SimpleModel) Init() tea.Cmd {
 	m.ReadAgentsMD()
@@ -291,6 +304,7 @@ func (m *SimpleModel) Init() tea.Cmd {
 	return tea.Batch(
 		textarea.Blink,
 		m.spinner.Tick,
+		subagentTick(),
 	)
 }
 
@@ -526,6 +540,10 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var spinCmd tea.Cmd
 		m.spinner, spinCmd = m.spinner.Update(msg)
 		return m, spinCmd
+
+	case subagentTickMsg:
+		m.subagentSummary = tools.GetSubagentsSummary()
+		return m, subagentTick()
 	}
 
 	// Update components
@@ -670,6 +688,22 @@ func (m *SimpleModel) renderFooter() string {
 	if m.loading {
 		// Show spinner during loading
 		b.WriteString(m.spinner.View() + " Processing...\n")
+		// Show running subagent activity
+		for _, ag := range m.subagentSummary {
+			label := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#888888")).
+				Render(fmt.Sprintf("  🤖 %s: ", ag.ID))
+			lastLine := ag.LastLine
+			if lastLine == "" {
+				lastLine = "(starting...)"
+			}
+			maxLen := m.width - lipgloss.Width(label) - 2
+			if maxLen > 0 && len(lastLine) > maxLen {
+				lastLine = lastLine[:maxLen-1] + "…"
+			}
+			lineStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+			b.WriteString(label + lineStyle.Render(lastLine) + "\n")
+		}
 	} else if m.waitingForApproval {
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
