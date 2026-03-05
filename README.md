@@ -9,9 +9,11 @@ Ashron is a TUI-based AI coding assistant for developers. It provides an interac
 - **Beautiful TUI Interface** - Built with Bubble Tea framework for a smooth terminal experience
 - **Streaming Chat** - Real-time streaming responses for natural conversation flow
 - **Tool System** - Execute commands, read/write files directly from the chat
+- **Custom Slash Commands** - Add your own `/name` commands from local markdown templates
 - **Context Management** - Smart context compaction with `/compact` command
 - **Flexible Configuration** - YAML-based configuration with environment variable support
-- **Safety First** - Tool approval system with configurable auto-approval
+- **Session Management** - Startup session picker and in-app session list/resume/delete
+- **Safety First** - Tool approval system with danger hints and detail toggle
 - **AGENTS.md** - [AGENTS.md](https://agents.md) supported.
 
 ## Installation
@@ -117,7 +119,11 @@ context:
 - `/clear` - Clear screen
 - `/compact` - Manually compact conversation context
 - `/config` - Display current configuration
+- `/status` - Show runtime status (model, approvals, sandbox, cwd)
+- `/sessions [list|resume <id>|delete <id>]` - Manage persisted sessions
+- `/tools` - Show tools and approval policy
 - `/skills` - List locally available skills (`$XDG_CONFIG_HOME/ashron/skills`, `~/.config/ashron/skills`)
+- `/commands` - List discovered custom slash commands
 - `/model [name]` - Show available models or switch to a different model
 - `/commit` - Generate and commit a git commit message
 - `/init` - Generate AGENTS.md for the current project
@@ -128,20 +134,22 @@ context:
 - `Enter` - Send message
 - `Shift+Tab` - Toggle collaboration mode (`Default` / `Plan`)
 - `Ctrl+J` - Insert new line in input
-- `Ctrl+C` - Cancel current operation or exit
+- `Esc` - Cancel current API request (while processing) / close command completion
+- `Ctrl+C` - Cancel all running operations (API + subagents) or exit
 - `Ctrl+P` / `Ctrl+N` - Scroll up / down
-- `y` / `n` - Approve / cancel pending tool calls
+- `y` / `n` / `d` - Approve / cancel / toggle details for pending tool calls
 - `Tab` / `Up` / `Down` - Navigate command completion
-- `Esc` - Close command completion
 
 In `Plan` mode, assistant responses are automatically saved under `~/.local/share/ashron/plans/` (or `$XDG_DATA_HOME/ashron/plans`).
+
+On startup (when sessions exist), Ashron shows an interactive session picker so you can resume without `--resume <id>`.
 
 ## Available Tools
 
 ### File Operations
 - **read_file** - Read contents of a file
 - **read_skill** - Read full `SKILL.md` content for an installed skill by name
-- **write_file** - Write content to a file
+- **write_file** - Write content with change summary (`lines old->new, +/ -`), atomic apply, and overwrite backup
 - **list_directory** - List files in a directory
 
 ### Command Execution
@@ -175,6 +183,31 @@ description: Short plain-text description of when this skill should be used.
 At startup, discovered skill `name`/`description` metadata is injected into the system prompt.
 
 When running `/init`, generated `AGENTS.md` now includes a `Skills` section listing discovered skills and their `SKILL.md` paths.
+
+## Custom Slash Commands
+
+Ashron discovers custom slash commands from:
+
+- `$XDG_CONFIG_HOME/ashron/commands`
+- `~/.config/ashron/commands`
+
+Each `*.md` file becomes a slash command using the filename:
+
+- `~/.config/ashron/commands/review.md` -> `/review`
+
+The file content is used as a prompt template, with optional YAML frontmatter:
+
+```md
+---
+description: Review staged changes with focus on risks
+---
+Please review the following context: $ARGUMENTS
+```
+
+Template variables:
+
+- `$ARGUMENTS` - all arguments joined by spaces
+- `$1` ... `$9` - positional arguments
 
 ## Sandboxing
 
@@ -255,6 +288,7 @@ Options:
   --base-url string  API base URL (overrides config)
   --log string       Path to log file for debugging
   --yolo             Disable sandbox and require no tool approvals (dangerous)
+  --resume string    Resume a previous session by ID
   --version          Show version information
   --help             Show help message
 ```
@@ -307,6 +341,7 @@ ashron/
 │   ├── api/            # OpenAI API client
 │   ├── config/         # Configuration management
 │   ├── context/        # Context management & compaction
+│   ├── customcmd/      # Custom slash command discovery and template expansion
 │   ├── tools/          # Tool execution system
 │   └── tui/            # Terminal UI components
 ├── configs/            # Default configuration

@@ -19,6 +19,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/gen2brain/beeep"
 	"github.com/tokuhirom/ashron/internal/agentsmd"
+	"github.com/tokuhirom/ashron/internal/customcmd"
 	"github.com/tokuhirom/ashron/internal/plan"
 	"github.com/tokuhirom/ashron/internal/skills"
 
@@ -87,7 +88,8 @@ type SimpleModel struct {
 	// Token usage tracking
 	currentUsage *api.Usage
 
-	availableSkills []skills.Skill
+	availableSkills         []skills.Skill
+	availableCustomCommands []customcmd.Command
 
 	collaborationMode string
 
@@ -153,6 +155,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 
 	isResume := sess != nil
 	availableSkills := skills.Discover()
+	availableCustomCommands := customcmd.Discover()
 
 	// Initialize chat session
 	chatSession := &api.ChatSession{Messages: []api.Message{}}
@@ -200,30 +203,32 @@ You have access to tools for file operations and command execution. Always ask f
 	commandRegistry := NewCommandRegistry()
 
 	m := &SimpleModel{
-		config:              cfg,
-		currentProviderName: provName,
-		currentModelName:    modelName,
-		apiClient:           apiClient,
-		textarea:            ta,
-		spinner:             sp,
-		viewport:            vp,
-		session:             chatSession,
-		messages:            messages,
-		contextMgr:          ctxMgr,
-		toolExec:            toolExec,
-		statusMsg:           "Ready",
-		ready:               true,
-		commandRegistry:     commandRegistry,
-		availableSkills:     availableSkills,
-		collaborationMode:   "default",
-		displayContent:      initDisplay,
-		sess:                sess,
-		isResume:            isResume,
+		config:                  cfg,
+		currentProviderName:     provName,
+		currentModelName:        modelName,
+		apiClient:               apiClient,
+		textarea:                ta,
+		spinner:                 sp,
+		viewport:                vp,
+		session:                 chatSession,
+		messages:                messages,
+		contextMgr:              ctxMgr,
+		toolExec:                toolExec,
+		statusMsg:               "Ready",
+		ready:                   true,
+		commandRegistry:         commandRegistry,
+		availableSkills:         availableSkills,
+		availableCustomCommands: availableCustomCommands,
+		collaborationMode:       "default",
+		displayContent:          initDisplay,
+		sess:                    sess,
+		isResume:                isResume,
 	}
 
 	if isResume {
 		m.restoreSessionDisplay()
 	}
+	m.registerCustomCommands()
 
 	return m, nil
 }
@@ -1307,6 +1312,29 @@ func (m *SimpleModel) RenderTools() tea.Cmd {
 	return nil
 }
 
+func (m *SimpleModel) RenderCustomCommands() tea.Cmd {
+	if len(m.availableCustomCommands) == 0 {
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Render("No custom commands found. Add *.md files under $XDG_CONFIG_HOME/ashron/commands."), "")
+		return nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Custom Slash Commands:\n")
+	for _, cmd := range m.availableCustomCommands {
+		fmt.Fprintf(&sb, "  /%s - %s\n    %s\n", cmd.Name, cmd.Description, cmd.Path)
+	}
+	msg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(sb.String())
+	for _, line := range strings.Split(msg, "\n") {
+		m.AddDisplayContent(line)
+	}
+	m.AddDisplayContent("")
+	return nil
+}
+
 func (m *SimpleModel) RenderSkills() tea.Cmd {
 	if len(m.availableSkills) == 0 {
 		msg := lipgloss.NewStyle().
@@ -1334,6 +1362,35 @@ func (m *SimpleModel) RenderSkills() tea.Cmd {
 	}
 	m.AddDisplayContent("")
 	return nil
+}
+
+func (m *SimpleModel) registerCustomCommands() {
+	for _, cc := range m.availableCustomCommands {
+		custom := cc
+		m.commandRegistry.Register(Command{
+			Name:        "/" + custom.Name,
+			Description: "Custom: " + custom.Description,
+			Body: func(_ *CommandRegistry, model *SimpleModel, args []string) tea.Cmd {
+				return model.runCustomCommand(custom, args)
+			},
+		})
+	}
+}
+
+func (m *SimpleModel) runCustomCommand(cmd customcmd.Command, args []string) tea.Cmd {
+	expanded := customcmd.Expand(cmd.Template, args)
+	if strings.TrimSpace(expanded) == "" {
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF3333")).
+			Render("Custom command produced empty prompt: /"+cmd.Name), "")
+		return nil
+	}
+
+	label := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(fmt.Sprintf("↪ /%s (%s)", cmd.Name, cmd.Path))
+	m.AddDisplayContent(label)
+	return m.SendMessage(expanded)
 }
 
 func (m *SimpleModel) resetDisplayHeader() {

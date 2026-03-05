@@ -131,6 +131,13 @@ func NewCommandRegistry() *CommandRegistry {
 					return m.RenderSkills()
 				},
 			},
+			"/commands": {
+				Name:        "/commands",
+				Description: "List custom slash commands",
+				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					return m.RenderCustomCommands()
+				},
+			},
 			"/model": {
 				Name:        "/model",
 				Description: "Show or switch model. Usage: /model [name]",
@@ -176,6 +183,14 @@ func (c *CommandRegistry) GetCommand(name string) (*Command, bool) {
 	return &cmd, exists
 }
 
+func (c *CommandRegistry) Register(cmd Command) bool {
+	if _, exists := c.commands[cmd.Name]; exists {
+		return false
+	}
+	c.commands[cmd.Name] = cmd
+	return true
+}
+
 // FilteredNames returns sorted command names that have the given prefix.
 func (c *CommandRegistry) FilteredNames(prefix string) []string {
 	var names []string
@@ -192,7 +207,13 @@ func (c *CommandRegistry) FilteredNames(prefix string) []string {
 func cmdHelp(cr *CommandRegistry, m *SimpleModel) tea.Cmd {
 	var sb strings.Builder
 	sb.WriteString("Available Commands:\n")
-	for _, cmd := range cr.commands {
+	var names []string
+	for name := range cr.commands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		cmd := cr.commands[name]
 		sb.WriteString("  " + cmd.Name + " - " + cmd.Description + "\n")
 	}
 	sb.WriteString("\n")
