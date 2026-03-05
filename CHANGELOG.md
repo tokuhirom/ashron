@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2026.305.2](https://github.com/tokuhirom/ashron/compare/v2026.305.1...v2026.305.2) - 2026-03-05
+- feat: session persistence and resume by @tokuhirom in https://github.com/tokuhirom/ashron/pull/45
+- fix: set goreleaser main to cmd/ashron by @tokuhirom in https://github.com/tokuhirom/ashron/pull/47
+
 ## [v2026.305.1](https://github.com/tokuhirom/ashron/compare/v2026.305.0...v2026.305.1) - 2026-03-05
 - Refactor config: provider/model hierarchy with /model switch command by @tokuhirom in https://github.com/tokuhirom/ashron/pull/27
 - Add command completion popup on / input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/31
