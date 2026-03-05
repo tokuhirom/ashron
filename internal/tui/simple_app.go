@@ -409,6 +409,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					m.statusMsg = "Cancelled all running operations"
 				} else {
+					m.saveSession()
 					return m, tea.Quit
 				}
 			case 'l':
@@ -1434,6 +1435,8 @@ func containsString(items []string, target string) bool {
 // Helper functions for managing messages
 func (m *SimpleModel) addUserMessage(content string) {
 	m.messages = append(m.messages, api.NewUserMessage(content))
+	// Persist immediately so interrupted requests are resumable.
+	m.saveSession()
 }
 
 // checkToolApproval checks if tools need approval
