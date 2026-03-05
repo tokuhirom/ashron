@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -227,7 +228,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Intercept navigation keys when completion popup is visible
 		if m.showCompletion && !m.loading {
-			items := m.commandRegistry.FilteredNames(m.textarea.Value())
+			items := m.completionItems()
 			switch msg.Type {
 			case tea.KeyUp:
 				if m.completionIndex > 0 {
@@ -241,7 +242,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case tea.KeyTab:
 				if len(items) > 0 {
-					m.textarea.SetValue(items[m.completionIndex])
+					prefix := m.completionArgPrefix()
+					m.textarea.SetValue(prefix + items[m.completionIndex])
 					m.textarea.CursorEnd()
 					m.showCompletion = false
 				}
@@ -251,7 +253,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case tea.KeyEnter:
 				if len(items) > 0 {
-					selected := items[m.completionIndex]
+					prefix := m.completionArgPrefix()
+					selected := prefix + items[m.completionIndex]
 					m.showCompletion = false
 					return m, m.handleCommand(selected)
 				}
@@ -433,15 +436,54 @@ func (m *SimpleModel) View() string {
 		footer)
 }
 
-// updateCompletionState updates the completion popup visibility based on textarea content.
-func (m *SimpleModel) updateCompletionState() {
+// completionItems returns the current list of completion candidates based on textarea input.
+func (m *SimpleModel) completionItems() []string {
 	input := m.textarea.Value()
 	if !strings.HasPrefix(input, "/") {
-		m.showCompletion = false
-		m.completionIndex = 0
-		return
+		return nil
 	}
-	items := m.commandRegistry.FilteredNames(input)
+	spaceIdx := strings.Index(input, " ")
+	if spaceIdx == -1 {
+		// No space yet: complete command names
+		return m.commandRegistry.FilteredNames(input)
+	}
+	// After a space: complete arguments for the command
+	cmd := input[:spaceIdx]
+	argPrefix := input[spaceIdx+1:]
+	switch cmd {
+	case "/model":
+		return m.filteredModelNames(argPrefix)
+	}
+	return nil
+}
+
+// completionArgPrefix returns the prefix to prepend when inserting a completion item.
+// For command completion it's empty (the item is the full value).
+// For argument completion it's the command + space (e.g. "/model ").
+func (m *SimpleModel) completionArgPrefix() string {
+	input := m.textarea.Value()
+	spaceIdx := strings.Index(input, " ")
+	if spaceIdx == -1 {
+		return ""
+	}
+	return input[:spaceIdx+1]
+}
+
+// filteredModelNames returns model names (across all providers) that match the given prefix.
+func (m *SimpleModel) filteredModelNames(prefix string) []string {
+	var names []string
+	for _, entry := range m.config.AllModelNames() {
+		if strings.HasPrefix(entry.Model, prefix) {
+			names = append(names, entry.Model)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// updateCompletionState updates the completion popup visibility based on textarea content.
+func (m *SimpleModel) updateCompletionState() {
+	items := m.completionItems()
 	m.showCompletion = len(items) > 0
 	if m.completionIndex >= len(items) {
 		m.completionIndex = max(0, len(items)-1)
@@ -453,15 +495,22 @@ func (m *SimpleModel) renderCompletion() string {
 	if !m.showCompletion {
 		return ""
 	}
-	items := m.commandRegistry.FilteredNames(m.textarea.Value())
+	items := m.completionItems()
 	if len(items) == 0 {
 		return ""
 	}
 
+	isArgMode := strings.Contains(m.textarea.Value(), " ")
+
 	var sb strings.Builder
 	for i, item := range items {
-		cmd, _ := m.commandRegistry.GetCommand(item)
-		line := fmt.Sprintf("%-12s %s", item, cmd.Description)
+		var line string
+		if isArgMode {
+			line = item
+		} else {
+			cmd, _ := m.commandRegistry.GetCommand(item)
+			line = fmt.Sprintf("%-12s %s", item, cmd.Description)
+		}
 		if i == m.completionIndex {
 			sb.WriteString(lipgloss.NewStyle().
 				Background(lipgloss.Color("#7D56F4")).
