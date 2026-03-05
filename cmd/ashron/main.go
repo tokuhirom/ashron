@@ -29,6 +29,7 @@ func main() {
 	model := app.Flag("model", "Model to use (overrides config)").String()
 	baseURL := app.Flag("base-url", "API base URL (overrides config)").String()
 	logFile := app.Flag("log", "Path to log file for debugging").String()
+	yolo := app.Flag("yolo", "Disable sandbox and require no tool approvals (dangerous)").Bool()
 
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -61,6 +62,10 @@ func main() {
 			prov.BaseURL = *baseURL
 			cfg.Providers[provName] = prov
 		}
+	}
+	if *yolo {
+		cfg.Tools.Yolo = true
+		cfg.Tools.SandboxMode = "off"
 	}
 
 	// Validate configuration
