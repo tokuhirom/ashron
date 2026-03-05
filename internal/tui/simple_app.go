@@ -21,6 +21,7 @@ import (
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
 	contextmgr "github.com/tokuhirom/ashron/internal/context"
+	"github.com/tokuhirom/ashron/internal/session"
 	"github.com/tokuhirom/ashron/internal/tools"
 )
 
@@ -81,10 +82,15 @@ type SimpleModel struct {
 	currentUsage *api.Usage
 
 	availableSkills []skills.Skill
+
+	// Session persistence
+	sess     *session.Session
+	isResume bool
 }
 
-// NewSimpleModel creates a new simplified application model
-func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
+// NewSimpleModel creates a new simplified application model.
+// Pass a non-nil sess to resume an existing session.
+func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, error) {
 	provName, provCfg, err := cfg.ActiveProvider()
 	if err != nil {
 		return nil, err
@@ -120,13 +126,19 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
 	vp.MouseWheelEnabled = true
 
-	// Initialize session
-	session := &api.ChatSession{
-		Messages: []api.Message{},
-	}
+	isResume := sess != nil
 
-	// Add system prompt
-	systemPrompt := `You are Ashron, an AI coding assistant. You help users with programming tasks by:
+	// Initialize chat session
+	chatSession := &api.ChatSession{Messages: []api.Message{}}
+
+	var messages []api.Message
+	if isResume {
+		messages = sess.Messages
+	} else {
+		sess = session.New(provName, modelName)
+
+		// Add system prompt for new sessions
+		systemPrompt := `You are Ashron, an AI coding assistant. You help users with programming tasks by:
 - Writing and editing code
 - Running commands
 - Explaining concepts
@@ -134,10 +146,11 @@ func NewSimpleModel(cfg *config.Config) (*SimpleModel, error) {
 - Suggesting improvements
 
 You have access to tools for file operations and command execution. Always ask for approval before making changes unless the operation is pre-approved.`
+		messages = append(messages, api.NewSystemMessage(systemPrompt))
+	}
+	chatSession.Messages = messages
 
-	session.Messages = append(session.Messages, api.NewSystemMessage(systemPrompt))
-
-	// Add welcome message to display content
+	// Build initial display content
 	welcomeMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#7D56F4")).
 		Bold(true).
@@ -145,17 +158,19 @@ You have access to tools for file operations and command execution. Always ask f
 	helpMsg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).
 		Render("Type /help for available commands")
-	yoloMsg := ""
+
+	initDisplay := []string{welcomeMsg, helpMsg}
 	if cfg.Tools.Yolo {
-		yoloMsg = lipgloss.NewStyle().
+		initDisplay = append(initDisplay, lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Bold(true).
-			Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved")
+			Render("YOLO MODE ENABLED: sandbox disabled and tools auto-approved"))
 	}
+	initDisplay = append(initDisplay, "")
 
 	commandRegistry := NewCommandRegistry()
 
-	return &SimpleModel{
+	m := &SimpleModel{
 		config:              cfg,
 		currentProviderName: provName,
 		currentModelName:    modelName,
@@ -163,21 +178,87 @@ You have access to tools for file operations and command execution. Always ask f
 		textarea:            ta,
 		spinner:             sp,
 		viewport:            vp,
-		session:             session,
-		messages:            session.Messages,
+		session:             chatSession,
+		messages:            messages,
 		contextMgr:          ctxMgr,
 		toolExec:            toolExec,
 		statusMsg:           "Ready",
 		ready:               true,
 		commandRegistry:     commandRegistry,
 		availableSkills:     skills.Discover(),
-		displayContent: append([]string{welcomeMsg, helpMsg}, func() []string {
-			if yoloMsg == "" {
-				return []string{""}
+		displayContent:      initDisplay,
+		sess:                sess,
+		isResume:            isResume,
+	}
+
+	if isResume {
+		m.restoreSessionDisplay()
+	}
+
+	return m, nil
+}
+
+// SessionID returns the current session ID.
+func (m *SimpleModel) SessionID() string {
+	if m.sess == nil {
+		return ""
+	}
+	return m.sess.ID
+}
+
+// saveSession updates the session messages and writes to disk.
+func (m *SimpleModel) saveSession() {
+	if m.sess == nil {
+		return
+	}
+	m.sess.Messages = m.messages
+	if err := m.sess.Save(); err != nil {
+		slog.Warn("Failed to save session", "error", err)
+	}
+}
+
+// restoreSessionDisplay renders past messages into displayContent.
+func (m *SimpleModel) restoreSessionDisplay() {
+	resumeHeader := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7D56F4")).
+		Italic(true).
+		Render("── Resuming session " + m.sess.ID + " ──")
+	m.displayContent = append(m.displayContent, resumeHeader, "")
+
+	for _, msg := range m.messages {
+		switch msg.Role {
+		case "user":
+			if msg.Content == "" {
+				continue
 			}
-			return []string{yoloMsg, ""}
-		}()...),
-	}, nil
+			line := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#04B575")).
+				Bold(true).
+				Render("You: ") + msg.Content
+			m.displayContent = append(m.displayContent, line, "")
+		case "assistant":
+			if msg.Content == "" {
+				continue
+			}
+			label := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FAFAFA")).
+				Render("Ashron: ")
+			for i, line := range strings.Split(msg.Content, "\n") {
+				if i == 0 {
+					m.displayContent = append(m.displayContent, label+line)
+				} else {
+					m.displayContent = append(m.displayContent, line)
+				}
+			}
+			m.displayContent = append(m.displayContent, "")
+		}
+	}
+
+	resumeFooter := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7D56F4")).
+		Italic(true).
+		Render("── End of resumed session ──")
+	m.displayContent = append(m.displayContent, resumeFooter, "")
 }
 
 // switchModel switches to a named model (searching all providers).
@@ -206,6 +287,11 @@ func (m *SimpleModel) Init() tea.Cmd {
 }
 
 func (m *SimpleModel) ReadAgentsMD() {
+	// On resume the AGENTS.md system message is already in the conversation history.
+	if m.isResume {
+		return
+	}
+
 	content := agentsmd.ReadAgentsMD()
 	if content == "" {
 		slog.Info("No AGENTS.md found in current or parent directories")
@@ -368,6 +454,9 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentOperation = "Executing approved tools"
 			return m, m.executePendingTools()
 		}
+
+		// Auto-save session after assistant response
+		m.saveSession()
 
 		// Agent finished processing - send notification
 		m.sendCompletionNotification()
