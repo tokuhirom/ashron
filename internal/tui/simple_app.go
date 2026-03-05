@@ -404,11 +404,20 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Add error to display content
 		errorMessage := msg.error.Error()
+		width := m.width - 4
+		if width < 40 {
+			width = 40
+		}
 		errorDisplay := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF3333")).
 			Bold(true).
+			Width(width).
 			Render("✗ Error: " + errorMessage)
-		m.AddDisplayContent(errorDisplay, "")
+		lines := strings.Split(errorDisplay, "\n")
+		for _, line := range lines {
+			m.AddDisplayContent(line)
+		}
+		m.AddDisplayContent("")
 		return m, nil
 
 	case spinner.TickMsg:
