@@ -57,9 +57,7 @@ func Discover() []Skill {
 
 func discoverRoots() []string {
 	var roots []string
-	if configDir, err := os.UserConfigDir(); err == nil && configDir != "" {
-		roots = append(roots, filepath.Join(configDir, "ashron", "skills"))
-	}
+	roots = append(roots, filepath.Join(xdgConfigDir(), "ashron", "skills"))
 
 	seen := make(map[string]struct{})
 	var existing []string
@@ -80,6 +78,17 @@ func discoverRoots() []string {
 		}
 	}
 	return existing
+}
+
+// xdgConfigDir returns $XDG_CONFIG_HOME if set, else falls back to os.UserConfigDir().
+func xdgConfigDir() string {
+	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+		return dir
+	}
+	if dir, err := os.UserConfigDir(); err == nil {
+		return dir
+	}
+	return filepath.Join(os.Getenv("HOME"), ".config")
 }
 
 func summarizeSkill(path string) string {
