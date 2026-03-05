@@ -723,6 +723,8 @@ func (m *SimpleModel) renderFooter() string {
 			b.WriteString(label + lineStyle.Render(lastLine) + "\n")
 		}
 	} else if m.waitingForApproval {
+		b.WriteString(m.renderApprovalPanel())
+		b.WriteString("\n")
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFA500")).
 			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel."))
@@ -753,6 +755,92 @@ func (m *SimpleModel) renderFooter() string {
 	}
 
 	return b.String()
+}
+
+func (m *SimpleModel) renderApprovalPanel() string {
+	calls := m.pendingApprovalCalls()
+	if len(calls) == 0 {
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFA500")).
+			Render("Pending approvals detected, but no non-auto-approved tool calls were found.")
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Approve these tool calls:\n")
+	maxItems := 6
+	for i, tc := range calls {
+		if i >= maxItems {
+			fmt.Fprintf(&sb, "  ... and %d more", len(calls)-maxItems)
+			break
+		}
+		fmt.Fprintf(&sb, "  %d. %s", i+1, summarizeToolForApproval(tc))
+		if i < len(calls)-1 && i < maxItems-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#FFA500")).
+		Foreground(lipgloss.Color("#FAFAFA")).
+		Padding(0, 1).
+		Render(sb.String())
+}
+
+func (m *SimpleModel) pendingApprovalCalls() []api.ToolCall {
+	calls := make([]api.ToolCall, 0, len(m.pendingToolCalls))
+	for _, tc := range m.pendingToolCalls {
+		if !m.isAutoApproved(tc.Function.Name, tc.Function.Arguments) {
+			calls = append(calls, tc)
+		}
+	}
+	return calls
+}
+
+func summarizeToolForApproval(tc api.ToolCall) string {
+	var oneLiner string
+	switch tc.Function.Name {
+	case "execute_command":
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Command) != "" {
+			oneLiner = "execute_command: " + truncateForApproval(args.Command)
+		}
+	case "read_file", "write_file", "list_directory":
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Path) != "" {
+			oneLiner = tc.Function.Name + ": " + truncateForApproval(args.Path)
+		}
+	case "read_skill":
+		var args struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Name) != "" {
+			oneLiner = "read_skill: " + truncateForApproval(args.Name)
+		}
+	case "fetch_url":
+		var args struct {
+			URL string `json:"url"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.URL) != "" {
+			oneLiner = "fetch_url: " + truncateForApproval(args.URL)
+		}
+	}
+
+	if oneLiner == "" {
+		oneLiner = tc.Function.Name
+	}
+	return oneLiner
+}
+
+func truncateForApproval(s string) string {
+	s = strings.TrimSpace(s)
+	const maxLen = 120
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
 
 func isShiftTab(msg tea.KeyPressMsg) bool {
