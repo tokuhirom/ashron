@@ -180,7 +180,10 @@ Keyboard Shortcuts:
   Enter      - Send message
   Ctrl+C     - Cancel current operation or exit
   Ctrl+L     - Clear screen
-  y/n        - Approve/Cancel tool execution (when prompted)`)
+  y/n        - Approve/Cancel tool execution (when prompted)
+
+Shell:
+  !<command> - Run a shell command directly (e.g. !ls, !git status)`)
 
 	helpText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#626262")).

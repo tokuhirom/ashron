@@ -427,6 +427,10 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if strings.HasPrefix(input, "/") {
 					return m, m.handleCommand(input)
 				}
+				// ! prefix: run shell command directly
+				if strings.HasPrefix(input, "!") {
+					return m, m.runShellCommand(strings.TrimPrefix(input, "!"))
+				}
 				return m, m.SendMessage(input)
 			}
 		default:
@@ -544,6 +548,10 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case subagentTickMsg:
 		m.subagentSummary = tools.GetSubagentsSummary()
 		return m, subagentTick()
+
+	case shellCmdMsg:
+		m.handleShellCmdMsg(msg)
+		return m, nil
 	}
 
 	// Update components
