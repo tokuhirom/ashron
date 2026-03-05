@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/gen2brain/beeep"
 	"github.com/tokuhirom/ashron/internal/agentsmd"
+	"github.com/tokuhirom/ashron/internal/skills"
 
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
@@ -78,6 +79,8 @@ type SimpleModel struct {
 
 	// Token usage tracking
 	currentUsage *api.Usage
+
+	availableSkills []skills.Skill
 }
 
 // NewSimpleModel creates a new simplified application model
@@ -167,6 +170,7 @@ You have access to tools for file operations and command execution. Always ask f
 		statusMsg:           "Ready",
 		ready:               true,
 		commandRegistry:     commandRegistry,
+		availableSkills:     skills.Discover(),
 		displayContent: append([]string{welcomeMsg, helpMsg}, func() []string {
 			if yoloMsg == "" {
 				return []string{""}
@@ -661,6 +665,35 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 	}
 	m.AddDisplayContent("")
 
+	return nil
+}
+
+func (m *SimpleModel) RenderSkills() tea.Cmd {
+	if len(m.availableSkills) == 0 {
+		msg := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Render("No local skills found. Looked under $XDG_CONFIG_HOME/ashron/skills and ~/.config/ashron/skills.")
+		m.AddDisplayContent(msg, "")
+		return nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Available Skills:\n")
+	for _, skill := range m.availableSkills {
+		if skill.Description != "" {
+			sb.WriteString(fmt.Sprintf("  - %s: %s\n    %s\n", skill.Name, skill.Description, skill.Path))
+		} else {
+			sb.WriteString(fmt.Sprintf("  - %s\n    %s\n", skill.Name, skill.Path))
+		}
+	}
+
+	msg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#626262")).
+		Render(sb.String())
+	for _, line := range strings.Split(msg, "\n") {
+		m.AddDisplayContent(line)
+	}
+	m.AddDisplayContent("")
 	return nil
 }
 
