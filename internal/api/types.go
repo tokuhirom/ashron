@@ -54,8 +54,11 @@ type FunctionProperty struct {
 	Description string `json:"description"`
 }
 
-// ToolCall represents a function call request from the model
+// ToolCall represents a function call request from the model.
+// Index is only populated in streaming deltas and is omitted when serializing
+// messages back to the API.
 type ToolCall struct {
+	Index    int          `json:"index,omitempty"`
 	ID       string       `json:"id"`
 	Type     string       `json:"type"`
 	Function FunctionCall `json:"function"`
@@ -108,9 +111,9 @@ type ErrorResponse struct {
 }
 
 type APIError struct {
-	Message string `json:"message"`
-	Type    string `json:"type"`
-	Code    string `json:"code"`
+	Message string      `json:"message"`
+	Type    string      `json:"type"`
+	Code    interface{} `json:"code"` // can be string or integer depending on the provider
 }
 
 // Tool execution results
