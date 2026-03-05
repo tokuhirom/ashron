@@ -43,7 +43,7 @@ func ListDirectory(_ *config.ToolsConfig, toolCallID string, argsJson string) ap
 
 	// Format output
 	var output strings.Builder
-	output.WriteString(fmt.Sprintf("Contents of %s:\n", path))
+	fmt.Fprintf(&output, "Contents of %s:\n", path)
 
 	for _, entry := range entries {
 		info, err := entry.Info()
@@ -57,12 +57,12 @@ func ListDirectory(_ *config.ToolsConfig, toolCallID string, argsJson string) ap
 			typeStr = "dir "
 		}
 
-		output.WriteString(fmt.Sprintf("  [%s] %s (%d bytes) %s\n",
+		fmt.Fprintf(&output, "  [%s] %s (%d bytes) %s\n",
 			typeStr,
 			entry.Name(),
 			info.Size(),
 			info.ModTime().Format("2006-01-02 15:04:05"),
-		))
+		)
 	}
 
 	result.Output = output.String()

@@ -59,8 +59,8 @@ func FormatAsText(tools []ToolInfo) string {
 
 	// Format each tool
 	for i, tool := range tools {
-		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, tool.Name))
-		sb.WriteString(fmt.Sprintf("   Description: %s\n", tool.Description))
+		fmt.Fprintf(&sb, "%d. %s\n", i+1, tool.Name)
+		fmt.Fprintf(&sb, "   Description: %s\n", tool.Description)
 
 		if len(tool.Parameters.Properties) > 0 {
 			sb.WriteString("   Parameters:\n")
@@ -72,7 +72,7 @@ func FormatAsText(tools []ToolInfo) string {
 						break
 					}
 				}
-				sb.WriteString(fmt.Sprintf("     - %s: %s%s\n", name, prop.Description, required))
+				fmt.Fprintf(&sb, "     - %s: %s%s\n", name, prop.Description, required)
 			}
 		} else {
 			sb.WriteString("   Parameters: None\n")
