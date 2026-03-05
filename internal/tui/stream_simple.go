@@ -83,6 +83,7 @@ func (m *SimpleModel) cancelCurrentRequest() {
 	m.statusMsg = "Cancelled"
 	m.currentOperation = ""
 	m.operationStartedAt = time.Time{}
+	m.saveSession()
 }
 
 // processMessage handles the actual API call

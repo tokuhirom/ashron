@@ -86,6 +86,7 @@ func NewCommandRegistry() *CommandRegistry {
 				Name:        "/quit",
 				Description: "Exit the application",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					m.saveSession()
 					return tea.Quit
 				},
 			},
@@ -93,6 +94,7 @@ func NewCommandRegistry() *CommandRegistry {
 				Name:        "/exit",
 				Description: "Exit the application",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
+					m.saveSession()
 					return tea.Quit
 				},
 			},
