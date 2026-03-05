@@ -32,6 +32,21 @@ func GetAllTools() []ToolInfo {
 			callback: ReadFile,
 		},
 		{
+			Name:        "read_skill",
+			Description: "Read the full SKILL.md content for an installed skill by name",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"name": {
+						Type:        "string",
+						Description: "Skill name from discovered skills list",
+					},
+				},
+				Required: []string{"name"},
+			},
+			callback: ReadSkill,
+		},
+		{
 			Name:        "write_file",
 			Description: "Write content to a file",
 			Parameters: api.FunctionParameters{

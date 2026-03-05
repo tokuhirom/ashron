@@ -12,6 +12,7 @@ func TestListTools(t *testing.T) {
 	// Check that output contains expected tools
 	expectedTools := []string{
 		"read_file",
+		"read_skill",
 		"write_file",
 		"execute_command",
 		"list_directory",
@@ -52,6 +53,7 @@ func TestListToolsJSON(t *testing.T) {
 	// Check that output contains expected tools
 	expectedTools := []string{
 		`"read_file"`,
+		`"read_skill"`,
 		`"write_file"`,
 		`"execute_command"`,
 		`"list_directory"`,
