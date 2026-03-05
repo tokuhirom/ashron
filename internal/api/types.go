@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -117,6 +118,31 @@ type ToolResult struct {
 	ToolCallID string `json:"tool_call_id"`
 	Output     string `json:"output"`
 	Error      error  `json:"error,omitempty"`
+}
+
+// MarshalJSON customizes JSON serialization of Message.
+// When an assistant message has tool_calls but no text content, many
+// OpenAI-compatible APIs (e.g. GLM-4.7) require "content": null rather
+// than "content": "". Sending an empty string causes a 400 "Extra data"
+// error on those servers.
+func (m Message) MarshalJSON() ([]byte, error) {
+	// Use a separate type to avoid infinite recursion.
+	type plain struct {
+		Role       string     `json:"role"`
+		Content    *string    `json:"content"`
+		ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+		ToolCallID string     `json:"tool_call_id,omitempty"`
+	}
+	p := plain{
+		Role:       m.Role,
+		ToolCalls:  m.ToolCalls,
+		ToolCallID: m.ToolCallID,
+	}
+	if m.Content != "" || len(m.ToolCalls) == 0 {
+		p.Content = &m.Content
+	}
+	// else: Content stays nil → serialized as null
+	return json.Marshal(p)
 }
 
 // Helper function to create a user message
