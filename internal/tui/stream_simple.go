@@ -60,8 +60,26 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	return m.processMessage()
 }
 
+// cancelCurrentRequest cancels the in-flight API request and resets loading state.
+func (m *SimpleModel) cancelCurrentRequest() {
+	if m.cancelAPICall != nil {
+		m.cancelAPICall()
+		m.cancelAPICall = nil
+	}
+	m.loading = false
+	m.statusMsg = "Cancelled"
+	cancelMsg := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FF7F50")).
+		Render("✗ Request cancelled")
+	m.AddDisplayContent(cancelMsg, "")
+}
+
 // processMessage handles the actual API call
 func (m *SimpleModel) processMessage() tea.Cmd {
+	// Create a cancellable context now (in Update goroutine) so Escape can cancel it.
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancelAPICall = cancel
+
 	return func() tea.Msg {
 		// Check if context needs compaction
 		if m.config.Context.AutoCompact {
@@ -83,24 +101,27 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 		}
 
 		// Stream the response
-		ctx := context.Background()
 		builtinTools := tools.GetBuiltinTools()
 		slog.Debug("Requesting streaming completion",
 			slog.Int("messages", len(m.messages)),
 			slog.Int("tools", len(builtinTools)))
 		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, builtinTools)
 		if err != nil {
+			if ctx.Err() != nil {
+				// Cancelled by user - not an error worth reporting
+				return nil
+			}
 			slog.Error("Failed to start streaming", "error", err)
 			return errorMsg{error: err}
 		}
 
 		// Start handling stream
-		return m.processStreamNew(stream)
+		return m.processStreamNew(ctx, stream)
 	}
 }
 
 // processStreamNew processes streaming responses with proper output collection
-func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
+func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.StreamEvent) tea.Msg {
 	var fullContent strings.Builder
 	var output strings.Builder // Collects all output to print
 	var toolCalls []api.ToolCall
@@ -121,6 +142,11 @@ func (m *SimpleModel) processStreamNew(stream <-chan api.StreamEvent) tea.Msg {
 
 	for event := range stream {
 		if event.Error != nil {
+			if ctx.Err() != nil {
+				// Stream closed due to user cancellation - not an error
+				slog.Info("Stream cancelled by user")
+				return nil
+			}
 			slog.Error("Stream error received", "error", event.Error)
 			return errorMsg{error: event.Error}
 		}

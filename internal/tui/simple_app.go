@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -86,6 +87,9 @@ type SimpleModel struct {
 	// Session persistence
 	sess     *session.Session
 	isResume bool
+
+	// Cancel function for the current API call
+	cancelAPICall context.CancelFunc
 }
 
 // NewSimpleModel creates a new simplified application model.
@@ -345,8 +349,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case 'c':
 				if m.loading {
-					m.loading = false
-					m.statusMsg = "Request cancelled"
+					m.cancelCurrentRequest()
 				} else {
 					return m, tea.Quit
 				}
@@ -358,6 +361,12 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textarea.InsertString("\n")
 				return m, nil
 			}
+		}
+
+		// Escape cancels the current API request when loading
+		if msg.Code == tea.KeyEsc && m.loading {
+			m.cancelCurrentRequest()
+			return m, nil
 		}
 
 		// Intercept navigation keys when completion popup is visible
