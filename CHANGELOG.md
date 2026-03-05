@@ -1,5 +1,31 @@
 # Changelog
 
+## [v2026.305.3](https://github.com/tokuhirom/ashron/compare/v2026.305.2...v2026.305.3) - 2026-03-05
+- fix: send content:null for assistant tool-call messages (GLM/OpenAI compat) by @tokuhirom in https://github.com/tokuhirom/ashron/pull/61
+- feat: highlight PLAN mode label in gold by @tokuhirom in https://github.com/tokuhirom/ashron/pull/63
+- feat: change textarea prompt and border color in shell (!) mode by @tokuhirom in https://github.com/tokuhirom/ashron/pull/64
+- feat: 起動時セッション選択UIを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/65
+- feat: write_fileを差分サマリ付き安全書き込みに改善 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/66
+- feat: ツール承認UXを改善（危険操作警告・詳細トグル） by @tokuhirom in https://github.com/tokuhirom/ashron/pull/67
+- feat: 長時間処理の可視化と中断制御を改善 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/68
+- feat: /status /sessions /tools コマンドを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/69
+- chore(deps): update actions/setup-go action to v6 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/9
+- feat: カスタムスラッシュコマンドを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/70
+- feat: スラッシュコマンドのクォート引数対応 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/71
+- feat: 長文ペーストをTUI上で省略表示 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/72
+- test: ダミーAIサーバーでE2Eテストを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/73
+- test: subagent managerの挙動テストを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/74
+- fix: Ctrl+C/キャンセル時のセッション保存漏れを修正 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/75
+- feat: /new コマンドを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/76
+- fix: block textarea input while waiting for tool approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/78
+- feat: 起動時ヘッダーにバージョン情報を表示 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/77
+- fix: remove double border from textarea input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/79
+- fix: correct parallel tool call index tracking in streaming by @tokuhirom in https://github.com/tokuhirom/ashron/pull/80
+- feat: strip <think> blocks from message history by @tokuhirom in https://github.com/tokuhirom/ashron/pull/81
+- fix: don't write start-delta args into toolCallArgs accumulator by @tokuhirom in https://github.com/tokuhirom/ashron/pull/82
+- fix: correct local-prefixes in .golangci.yml by @tokuhirom in https://github.com/tokuhirom/ashron/pull/84
+- feat: show executing tool name in status bar by @tokuhirom in https://github.com/tokuhirom/ashron/pull/85
+
 ## [v2026.305.2](https://github.com/tokuhirom/ashron/compare/v2026.305.1...v2026.305.2) - 2026-03-05
 - feat: session persistence and resume by @tokuhirom in https://github.com/tokuhirom/ashron/pull/45
 - fix: set goreleaser main to cmd/ashron by @tokuhirom in https://github.com/tokuhirom/ashron/pull/47
