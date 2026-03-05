@@ -201,12 +201,15 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 				}
 
 				// Handle tool calls - accumulate arguments properly
-				for i, deltaToolCall := range choice.Delta.ToolCalls {
-					// Determine the index for this tool call
-					idx := choice.Index*100 + i
+				for _, deltaToolCall := range choice.Delta.ToolCalls {
+					// Use the Index field from the streaming delta directly.
+					// Previously this used choice.Index*100+i which mapped ALL
+					// parallel tool calls to idx=0, causing argument concatenation
+					// like {"path":"."} {"path":"internal"} -> invalid JSON.
+					idx := deltaToolCall.Index
 
 					if deltaToolCall.ID != "" {
-						// New tool call starting
+						// New tool call starting - reset accumulator for this index
 						tc := &api.ToolCall{
 							ID:   deltaToolCall.ID,
 							Type: deltaToolCall.Type,
@@ -216,10 +219,8 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 							},
 						}
 						toolCallsByIndex[idx] = tc
+						toolCallArgs[idx] = &strings.Builder{}
 						if deltaToolCall.Function.Arguments != "" {
-							if toolCallArgs[idx] == nil {
-								toolCallArgs[idx] = &strings.Builder{}
-							}
 							toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
 						}
 					} else if deltaToolCall.Function.Arguments != "" {
@@ -229,17 +230,6 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 								toolCallArgs[idx] = &strings.Builder{}
 							}
 							toolCallArgs[idx].WriteString(deltaToolCall.Function.Arguments)
-						} else {
-							// Try to find by function name if index doesn't work
-							for tidx, tc := range toolCallsByIndex {
-								if tc.Function.Name == deltaToolCall.Function.Name {
-									if toolCallArgs[tidx] == nil {
-										toolCallArgs[tidx] = &strings.Builder{}
-									}
-									toolCallArgs[tidx].WriteString(deltaToolCall.Function.Arguments)
-									break
-								}
-							}
 						}
 					}
 

@@ -116,6 +116,103 @@ func TestE2E_DummyServerToolRoundTrip(t *testing.T) {
 	}
 }
 
+// TestE2E_ParallelToolCalls verifies that two tool calls made in the same
+// streaming response (parallel tool calls) are tracked independently using the
+// Index field from the streaming delta. Previously, both mapped to idx=0 which
+// caused their arguments to be concatenated, producing invalid JSON like
+// {"path":"."} {"path":"internal"} → "Extra data: line 1 column 22" from GLM-4.7.
+func TestE2E_ParallelToolCalls(t *testing.T) {
+	tmp := t.TempDir()
+	fileA := filepath.Join(tmp, "a.txt")
+	fileB := filepath.Join(tmp, "b.txt")
+	if err := os.WriteFile(fileA, []byte("content-a\n"), 0644); err != nil {
+		t.Fatalf("write a: %v", err)
+	}
+	if err := os.WriteFile(fileB, []byte("content-b\n"), 0644); err != nil {
+		t.Fatalf("write b: %v", err)
+	}
+
+	argsA, _ := json.Marshal(map[string]string{"path": fileA})
+	argsB, _ := json.Marshal(map[string]string{"path": fileB})
+
+	server := newDummyChatServer(t, func(call int, req api.ChatCompletionRequest) []api.StreamResponse {
+		switch call {
+		case 0:
+			// Return two parallel tool calls, each in a separate streaming delta
+			// using the Index field to distinguish them (index 0 and index 1).
+			return []api.StreamResponse{
+				// Start call_a (index 0)
+				{Choices: []api.Choice{{Index: 0, Delta: api.Message{ToolCalls: []api.ToolCall{{
+					Index: 0, ID: "call_a", Type: "function",
+					Function: api.FunctionCall{Name: "read_file"},
+				}}}}}},
+				// Stream args for call_a
+				{Choices: []api.Choice{{Index: 0, Delta: api.Message{ToolCalls: []api.ToolCall{{
+					Index: 0, Function: api.FunctionCall{Arguments: string(argsA)},
+				}}}}}},
+				// Start call_b (index 1)
+				{Choices: []api.Choice{{Index: 0, Delta: api.Message{ToolCalls: []api.ToolCall{{
+					Index: 1, ID: "call_b", Type: "function",
+					Function: api.FunctionCall{Name: "read_file"},
+				}}}}}},
+				// Stream args for call_b
+				{Choices: []api.Choice{{Index: 0, Delta: api.Message{ToolCalls: []api.ToolCall{{
+					Index: 1, Function: api.FunctionCall{Arguments: string(argsB)},
+				}}}}}},
+				// Finish
+				{Choices: []api.Choice{{Index: 0, FinishReason: "tool_calls"}}},
+			}
+		case 1:
+			// Verify both tool results are present
+			var gotA, gotB bool
+			for _, msg := range req.Messages {
+				if msg.Role == "tool" && msg.ToolCallID == "call_a" && strings.Contains(msg.Content, "content-a") {
+					gotA = true
+				}
+				if msg.Role == "tool" && msg.ToolCallID == "call_b" && strings.Contains(msg.Content, "content-b") {
+					gotB = true
+				}
+			}
+			if !gotA {
+				t.Fatalf("missing tool result for call_a")
+			}
+			if !gotB {
+				t.Fatalf("missing tool result for call_b")
+			}
+			// Also verify the assistant message's tool_call arguments are valid JSON
+			for _, msg := range req.Messages {
+				if msg.Role == "assistant" {
+					for _, tc := range msg.ToolCalls {
+						var v map[string]string
+						if err := json.Unmarshal([]byte(tc.Function.Arguments), &v); err != nil {
+							t.Fatalf("tool call %s has invalid JSON arguments %q: %v", tc.ID, tc.Function.Arguments, err)
+						}
+					}
+				}
+			}
+			return []api.StreamResponse{
+				{Choices: []api.Choice{{Index: 0, Delta: api.Message{Content: "both files read"}}}},
+				{Choices: []api.Choice{{Index: 0, FinishReason: "stop"}}},
+			}
+		default:
+			t.Fatalf("unexpected call index: %d", call)
+			return nil
+		}
+	})
+	defer server.Close()
+
+	m := newE2EModel(t, server.URL)
+	cmd := m.SendMessage("read both files")
+	if err := runCommandLoop(m, cmd, 30); err != nil {
+		t.Fatalf("run command loop: %v", err)
+	}
+
+	last := m.messages[len(m.messages)-1]
+	if last.Role != "assistant" || !strings.Contains(last.Content, "both files read") {
+		t.Fatalf("unexpected final message: %#v", last)
+	}
+}
+
 func newE2EModel(t *testing.T, baseURL string) *SimpleModel {
 	t.Helper()
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
