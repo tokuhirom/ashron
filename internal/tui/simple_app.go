@@ -933,7 +933,7 @@ func summarizeToolForApproval(tc api.ToolCall) string {
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Command) != "" {
 			oneLiner = "execute_command: " + truncateForApproval(args.Command)
 		}
-	case "read_file", "write_file", "list_directory":
+	case "read_file", "write_file", "list_directory", "apply_patch":
 		var args struct {
 			Path string `json:"path"`
 		}
@@ -976,6 +976,8 @@ func approvalWhy(tc api.ToolCall) string {
 		return "Runs a shell command."
 	case "write_file":
 		return "Writes file contents; existing files are backed up before overwrite."
+	case "apply_patch":
+		return "Applies minimal patch hunks with context matching and backup."
 	case "read_file":
 		return "Reads file contents."
 	case "list_directory":
@@ -1012,6 +1014,20 @@ func approvalDanger(tc api.ToolCall) (bool, string) {
 		for _, root := range dangerRoots {
 			if path == root || strings.HasPrefix(path, root+"/") {
 				return true, "Writes to system-managed path: " + root
+			}
+		}
+	case "apply_patch":
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return true, "Could not parse patch target path."
+		}
+		path := filepath.Clean(args.Path)
+		dangerRoots := []string{"/etc", "/usr", "/bin", "/sbin", "/lib", "/boot", "/System"}
+		for _, root := range dangerRoots {
+			if path == root || strings.HasPrefix(path, root+"/") {
+				return true, "Patches system-managed path: " + root
 			}
 		}
 	}

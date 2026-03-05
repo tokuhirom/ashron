@@ -66,6 +66,25 @@ func GetAllTools() []ToolInfo {
 			callback: WriteFile,
 		},
 		{
+			Name:        "apply_patch",
+			Description: "Safely apply minimal patch hunks to a file with backup and failure hints",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"path": {
+						Type:        "string",
+						Description: "The file path to patch",
+					},
+					"patch": {
+						Type:        "string",
+						Description: "Unified diff hunks (lines starting with @@ ... @@ and +/ -/ context lines)",
+					},
+				},
+				Required: []string{"path", "patch"},
+			},
+			callback: ApplyPatch,
+		},
+		{
 			Name:        "execute_command",
 			Description: "Execute a shell command",
 			Parameters: api.FunctionParameters{

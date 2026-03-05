@@ -429,6 +429,22 @@ func toolCallSummaryLines(tc api.ToolCall) []string {
 			"    new file",
 		)
 	}
+	if tc.Function.Name == "apply_patch" {
+		var args struct {
+			Path  string `json:"path"`
+			Patch string `json:"patch"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args.Path == "" {
+			return append(lines, "  └ Apply patch")
+		}
+		added := strings.Count(args.Patch, "\n+")
+		removed := strings.Count(args.Patch, "\n-")
+		return append(lines,
+			"  └ Apply patch: "+args.Path,
+			fmt.Sprintf("    patch lines: +%d -%d", added, removed),
+			"    backup will be created before apply",
+		)
+	}
 
 	return append(lines, "  └ Used tool: "+tc.Function.Name)
 }
