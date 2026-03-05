@@ -127,15 +127,16 @@ func configFilePath() string {
 	return filepath.Join(xdgConfigDir(), "ashron", "ashron.yaml")
 }
 
-// xdgConfigDir returns $XDG_CONFIG_HOME if set, else falls back to os.UserConfigDir().
+// xdgConfigDir returns $XDG_CONFIG_HOME if set, else $HOME/.config per XDG spec.
 func xdgConfigDir() string {
 	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
 		return dir
 	}
-	if dir, err := os.UserConfigDir(); err == nil {
-		return dir
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = os.Getenv("HOME")
 	}
-	return filepath.Join(os.Getenv("HOME"), ".config")
+	return filepath.Join(home, ".config")
 }
 
 func applyDefaults(raw *rawConfig) {
