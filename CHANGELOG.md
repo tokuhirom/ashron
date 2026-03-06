@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2026.306.8](https://github.com/tokuhirom/ashron/compare/v2026.306.7...v2026.306.8) - 2026-03-06
+- feat: show live command output in footer during execute_command by @tokuhirom in https://github.com/tokuhirom/ashron/pull/118
+- feat: add accept-edits collaboration mode (Shift+Tab cycle) by @tokuhirom in https://github.com/tokuhirom/ashron/pull/120
+
 ## [v2026.306.7](https://github.com/tokuhirom/ashron/compare/v2026.306.6...v2026.306.7) - 2026-03-06
 - feat: add shell command output to conversation history by @tokuhirom in https://github.com/tokuhirom/ashron/pull/114
 - feat: show auto-compact progress in footer by @tokuhirom in https://github.com/tokuhirom/ashron/pull/116
