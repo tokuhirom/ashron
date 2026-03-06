@@ -794,7 +794,7 @@ func atPathCompletionItems(pathPrefix string) []string {
 		if strings.HasPrefix(name, ".") && !strings.HasPrefix(namePrefix, ".") {
 			continue
 		}
-		if !strings.HasPrefix(name, namePrefix) {
+		if !strings.HasPrefix(strings.ToLower(name), strings.ToLower(namePrefix)) {
 			continue
 		}
 		candidate := dirPart + name

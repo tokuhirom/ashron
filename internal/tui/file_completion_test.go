@@ -80,6 +80,12 @@ func TestAtPathCompletionItems(t *testing.T) {
 		t.Fatalf("nestedItems should contain nested match, got %#v", nestedItems)
 	}
 
+	// Case-insensitive: "readme" should match "README.md"
+	caseItems := atPathCompletionItems("readme")
+	if !slices.Contains(caseItems, "@README.md") {
+		t.Fatalf("caseItems should contain @README.md for case-insensitive match, got %#v", caseItems)
+	}
+
 	hiddenItems := atPathCompletionItems(".")
 	if !slices.Contains(hiddenItems, "@.hidden") {
 		t.Fatalf("hiddenItems should contain hidden file when dot-prefixed, got %#v", hiddenItems)
