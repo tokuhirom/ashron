@@ -17,6 +17,7 @@ Ashron is a TUI-based AI coding assistant for developers. It provides an interac
 - **Session Management** - Startup session picker and in-app session list/resume/delete
 - **Safety First** - Tool approval system with danger hints and detail toggle
 - **AGENTS.md** - [AGENTS.md](https://agents.md) supported.
+- **ACP Support** - Run as an [Agent Client Protocol](https://agentclientprotocol.com/) server for JetBrains IDE and Zed integration
 
 ## Installation
 
@@ -287,6 +288,35 @@ Prerequisites:
 - macOS: `sandbox-exec` available in `PATH`
 - Linux: `bwrap` available in `PATH`
 
+## ACP (Agent Client Protocol) Integration
+
+Ashron can run as an [ACP](https://agentclientprotocol.com/) server, enabling integration with JetBrains IDE (2025.3+) and Zed without registering in the public registry.
+
+### Local Setup for JetBrains IDE
+
+Add to `~/.jetbrains/acp.json`:
+
+```json
+{
+  "agent_servers": [
+    {
+      "command": "/path/to/ashron",
+      "args": ["--acp"]
+    }
+  ]
+}
+```
+
+Then restart your JetBrains IDE. Ashron will appear in the AI Chat agent list.
+
+### How It Works
+
+- Communicates via JSON-RPC 2.0 over stdin/stdout
+- Supports `initialize`, `session/new`, `session/prompt`, `session/cancel`
+- Streams responses via `session/update` notifications
+- Uses the same tool approval rules as the TUI (auto-approves safe tools, asks client permission for dangerous ones via `session/request_permission`)
+- Markdown theme can be configured via `GLAMOUR_STYLE` env var (`dark` by default, set `light` for light terminals)
+
 ## Command Line Options
 
 ```bash
@@ -299,6 +329,8 @@ Options:
   --log string       Path to log file for debugging
   --yolo             Disable sandbox and require no tool approvals (dangerous)
   --resume string    Resume a previous session by ID
+  --pick             Show interactive session picker to resume a previous session
+  --acp              Run as an ACP server over stdin/stdout (for IDE integration)
   --version          Show version information
   --help             Show help message
 ```
@@ -348,6 +380,7 @@ go build -o ashron ./cmd/ashron
 ashron/
 ├── cmd/ashron/          # Application entry point
 ├── internal/
+│   ├── acp/            # ACP server (Agent Client Protocol, JSON-RPC 2.0 over stdio)
 │   ├── api/            # OpenAI API client
 │   ├── config/         # Configuration management
 │   ├── context/        # Context management & compaction
@@ -380,8 +413,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Roadmap
 
-- [ ] Multiple conversation sessions
-- [ ] Conversation history persistence
+- [x] Multiple conversation sessions
+- [x] Conversation history persistence
+- [x] ACP (Agent Client Protocol) support for JetBrains/Zed
 - [ ] MCP support
 - [ ] Theme customization
 - [ ] Image/file upload support
