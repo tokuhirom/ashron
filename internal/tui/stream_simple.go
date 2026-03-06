@@ -357,9 +357,13 @@ func (m *SimpleModel) executeNextTool() tea.Cmd {
 
 		// Keep tool result display compact; detailed output remains in tool messages.
 		if result.Error != nil {
-			output.WriteString(lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#FF7F50")).
-				Render("tool error: " + tc.Function.Name))
+			errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF7F50"))
+			output.WriteString(errStyle.Render("tool error: " + tc.Function.Name))
+			if tc.Function.Arguments != "" {
+				output.WriteString(errStyle.Render(" " + tc.Function.Arguments))
+			}
+			output.WriteString("\n")
+			output.WriteString(errStyle.Render("  → " + result.Error.Error()))
 			output.WriteString("\n")
 		}
 
