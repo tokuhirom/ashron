@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textarea"
@@ -480,7 +481,12 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					prefix := m.completionArgPrefix()
 					selected := prefix + items[m.completionIndex]
 					m.showCompletion = false
-					return m, m.handleCommand(selected)
+					if strings.HasPrefix(m.textarea.Value(), "/") {
+						return m, m.handleCommand(selected)
+					}
+					m.textarea.SetValue(selected)
+					m.textarea.CursorEnd()
+					return m, nil
 				}
 			}
 		}
@@ -680,22 +686,26 @@ func (m *SimpleModel) View() tea.View {
 // completionItems returns the current list of completion candidates based on textarea input.
 func (m *SimpleModel) completionItems() []string {
 	input := m.textarea.Value()
-	if !strings.HasPrefix(input, "/") {
+	if strings.HasPrefix(input, "/") {
+		spaceIdx := strings.Index(input, " ")
+		if spaceIdx == -1 {
+			// No space yet: complete command names
+			return m.commandRegistry.FilteredNames(input)
+		}
+		// After a space: complete arguments for the command
+		cmd := input[:spaceIdx]
+		argPrefix := input[spaceIdx+1:]
+		switch cmd {
+		case "/model":
+			return m.filteredModelNames(argPrefix)
+		}
 		return nil
 	}
-	spaceIdx := strings.Index(input, " ")
-	if spaceIdx == -1 {
-		// No space yet: complete command names
-		return m.commandRegistry.FilteredNames(input)
+	atQuery, ok := parseAtPathQuery(input)
+	if !ok {
+		return nil
 	}
-	// After a space: complete arguments for the command
-	cmd := input[:spaceIdx]
-	argPrefix := input[spaceIdx+1:]
-	switch cmd {
-	case "/model":
-		return m.filteredModelNames(argPrefix)
-	}
-	return nil
+	return atPathCompletionItems(atQuery.PathPrefix)
 }
 
 // completionArgPrefix returns the prefix to prepend when inserting a completion item.
@@ -703,11 +713,84 @@ func (m *SimpleModel) completionItems() []string {
 // For argument completion it's the command + space (e.g. "/model ").
 func (m *SimpleModel) completionArgPrefix() string {
 	input := m.textarea.Value()
-	spaceIdx := strings.Index(input, " ")
-	if spaceIdx == -1 {
-		return ""
+	if strings.HasPrefix(input, "/") {
+		spaceIdx := strings.Index(input, " ")
+		if spaceIdx == -1 {
+			return ""
+		}
+		return input[:spaceIdx+1]
 	}
-	return input[:spaceIdx+1]
+	atQuery, ok := parseAtPathQuery(input)
+	if ok {
+		return atQuery.InsertPrefix
+	}
+	return ""
+}
+
+type atPathQuery struct {
+	InsertPrefix string
+	PathPrefix   string
+}
+
+func parseAtPathQuery(input string) (atPathQuery, bool) {
+	if input == "" {
+		return atPathQuery{}, false
+	}
+	lastWS := strings.LastIndexFunc(input, unicode.IsSpace)
+	tokenStart := lastWS + 1
+	if tokenStart >= len(input) || input[tokenStart] != '@' {
+		return atPathQuery{}, false
+	}
+	return atPathQuery{
+		InsertPrefix: input[:tokenStart],
+		PathPrefix:   input[tokenStart+1:],
+	}, true
+}
+
+func atPathCompletionItems(pathPrefix string) []string {
+	dirPart := ""
+	namePrefix := pathPrefix
+	if idx := strings.LastIndex(pathPrefix, "/"); idx >= 0 {
+		dirPart = pathPrefix[:idx+1]
+		namePrefix = pathPrefix[idx+1:]
+	}
+
+	readDirPath := "."
+	if dirPart != "" {
+		readDirPath = dirPart
+	}
+	entries, err := os.ReadDir(readDirPath)
+	if err != nil {
+		return nil
+	}
+
+	var items []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") && !strings.HasPrefix(namePrefix, ".") {
+			continue
+		}
+		if !strings.HasPrefix(name, namePrefix) {
+			continue
+		}
+		candidate := dirPart + name
+		if entry.IsDir() {
+			candidate += "/"
+		}
+		items = append(items, "@"+escapePathForToken(candidate))
+	}
+
+	sort.Strings(items)
+	return items
+}
+
+func escapePathForToken(path string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+		" ", "\\ ",
+		"\t", "\\\t",
+	)
+	return replacer.Replace(path)
 }
 
 // filteredModelNames returns model names (across all providers) that match the given prefix.
@@ -755,12 +838,13 @@ func (m *SimpleModel) renderCompletion() string {
 		return ""
 	}
 
-	isArgMode := strings.Contains(m.textarea.Value(), " ")
+	isCommandMode := strings.HasPrefix(m.textarea.Value(), "/")
+	isArgMode := isCommandMode && strings.Contains(m.textarea.Value(), " ")
 
 	var sb strings.Builder
 	for i, item := range items {
 		var line string
-		if isArgMode {
+		if !isCommandMode || isArgMode {
 			line = item
 		} else {
 			cmd, _ := m.commandRegistry.GetCommand(item)
