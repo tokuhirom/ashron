@@ -285,6 +285,35 @@ func GetAllTools() []ToolInfo {
 			callback: GitGrep,
 		},
 		{
+			Name:        "memory_write",
+			Description: "Save or update persistent memory that survives across sessions. Use scope=\"global\" for notes that apply to all projects, or scope=\"project\" (default) for notes specific to the current project. The content completely replaces the existing memory for that scope.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"content": {
+						Type:        "string",
+						Description: "Markdown content to store. Completely replaces the current memory for the scope.",
+					},
+					"scope": {
+						Type:        "string",
+						Description: "\"global\" (all projects) or \"project\" (this project only, default)",
+					},
+				},
+				Required: []string{"content"},
+			},
+			callback: MemoryWrite,
+		},
+		{
+			Name:        "memory_list",
+			Description: "Show the current contents of both global and project memory files, along with their file paths.",
+			Parameters: api.FunctionParameters{
+				Type:       "object",
+				Properties: map[string]api.FunctionProperty{},
+				Required:   []string{},
+			},
+			callback: MemoryList,
+		},
+		{
 			Name:        "get_diagnostics",
 			Description: "Get language server diagnostics (errors, warnings) for a source file. Requires the appropriate language server to be installed (gopls for Go, pyright for Python, typescript-language-server for TS/JS, rust-analyzer for Rust, clangd for C/C++).",
 			Parameters: api.FunctionParameters{
