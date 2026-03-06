@@ -251,10 +251,11 @@ func (m *SimpleModel) restoreSessionDisplay() {
 			label := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#FAFAFA")).
 				Render("Ashron: ")
-			for i, line := range strings.Split(msg.Content, "\n") {
+			rendered := renderMarkdown(msg.Content, m.width)
+			for i, line := range strings.Split(rendered, "\n") {
 				if i == 0 {
 					m.displayContent = append(m.displayContent, label+line)
-				} else {
+				} else if line != "" {
 					m.displayContent = append(m.displayContent, line)
 				}
 			}
@@ -541,15 +542,26 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentUsage = msg.Usage
 		}
 
-		// Add output to display content
-		if msg.Content != "" {
-			// Split content by lines and add to display
-			lines := strings.Split(msg.Content, "\n")
-			for _, line := range lines {
-				if line != "" {
+		// Render the assistant's markdown text and add to display.
+		assistantLabel := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FAFAFA")).
+			Render("Ashron: ")
+		if msg.AssistantText != "" {
+			rendered := renderMarkdown(msg.AssistantText, m.width)
+			lines := strings.Split(rendered, "\n")
+			for i, line := range lines {
+				if i == 0 {
+					m.AddDisplayContent(assistantLabel + line)
+				} else if line != "" {
 					m.AddDisplayContent(line)
 				}
 			}
+		} else {
+			// Tool-only response: show label so the user knows the assistant acted.
+			m.AddDisplayContent(assistantLabel)
+		}
+		for _, line := range msg.ToolLines {
+			m.AddDisplayContent(line)
 		}
 
 		// Check if we have pending tool calls
@@ -566,7 +578,7 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Auto-save session after assistant response
 		m.saveSession()
-		m.savePlanIfNeeded(msg.Content)
+		m.savePlanIfNeeded(msg.AssistantText)
 
 		// Agent finished processing - send notification
 		m.sendCompletionNotification()

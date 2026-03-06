@@ -27,10 +27,14 @@ type errorMsg struct {
 	error error
 }
 
-// StreamOutput represents output to be printed
+// StreamOutput represents the complete assistant response ready for display.
 type StreamOutput struct {
-	Content string
-	Usage   *api.Usage
+	// AssistantText is the AI response text with <think> blocks stripped by
+	// thinkingFilter.  It is rendered through glamour for Markdown display.
+	AssistantText string
+	// ToolLines contains pre-styled tool call summary lines (one entry per line).
+	ToolLines []string
+	Usage     *api.Usage
 }
 
 // StreamingMsg represents a message chunk during streaming
@@ -142,8 +146,8 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 // processStreamNew processes streaming responses with proper output collection
 func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.StreamEvent) tea.Msg {
 	var fullContent strings.Builder
-	var output strings.Builder // Collects all output to print
 	var toolCalls []api.ToolCall
+	var toolLines []string // pre-styled tool call summary lines for display
 	var chunkCount int
 	var usage *api.Usage
 	// thinkingFilter strips <think>...</think> blocks from the history while
@@ -153,12 +157,6 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 	// Map to accumulate tool call arguments by index
 	toolCallArgs := make(map[int]*strings.Builder)
 	toolCallsByIndex := make(map[int]*api.ToolCall)
-
-	// Add assistant label
-	assistantLabel := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Render("Ashron: ")
-	output.WriteString(assistantLabel)
 
 	slog.Debug("Starting to process stream")
 	m.currentOperation = "Receiving AI response"
@@ -191,11 +189,11 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 				// Handle content
 				if choice.Delta.Content != "" {
 					// Run the chunk through the thinking filter.
-					//   displayChunk  - written to the TUI output (includes <think> blocks)
-					//   historyChunk  - written to message history (<think> blocks stripped)
-					displayChunk, historyChunk := tf.Feed(choice.Delta.Content)
+					//   _            - display output is no longer used; glamour
+					//                  renders the full text at stream end.
+					//   historyChunk - written to message history (<think> blocks stripped)
+					_, historyChunk := tf.Feed(choice.Delta.Content)
 
-					output.WriteString(displayChunk)
 					fullContent.WriteString(historyChunk)
 					slog.Debug("Received content chunk", "chunk", chunkCount, "contentLength", len(choice.Delta.Content), "totalLength", fullContent.Len())
 
@@ -268,10 +266,6 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 				// Check if finished
 				if choice.FinishReason == "stop" || choice.FinishReason == "tool_calls" {
 					m.currentOperation = "Finalizing response"
-					// Add newlines after content if there was content
-					if fullContent.Len() > 0 {
-						output.WriteString("\n\n")
-					}
 
 					// Finalize tool calls with complete arguments
 					for idx, tc := range toolCallsByIndex {
@@ -284,12 +278,11 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 						}
 						toolCalls = append(toolCalls, *tc)
 
-						// Keep tool execution display compact (single-line summary).
+						// Collect compact tool summary lines for display.
 						for _, line := range toolCallSummaryLines(*tc) {
-							output.WriteString(lipgloss.NewStyle().
+							toolLines = append(toolLines, lipgloss.NewStyle().
 								Foreground(lipgloss.Color("#626262")).
 								Render(line))
-							output.WriteString("\n")
 						}
 
 						slog.Debug("Finalized tool call",
@@ -303,8 +296,7 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 					// Flush any bytes still held in the thinking filter carry buffer.
 					// This handles the (unusual) case where the stream ends with a
 					// partial tag like "<thi" that never resolved into a real tag.
-					if flushDisplay, flushHistory := tf.Flush(); flushDisplay != "" || flushHistory != "" {
-						output.WriteString(flushDisplay)
+					if _, flushHistory := tf.Flush(); flushHistory != "" {
 						fullContent.WriteString(flushHistory)
 					}
 
@@ -330,7 +322,7 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 					m.currentMessage = fullContent.String()
 
 					// Return the complete output as a StreamOutput message
-					return StreamOutput{Content: output.String(), Usage: usage}
+					return StreamOutput{AssistantText: fullContent.String(), ToolLines: toolLines, Usage: usage}
 				}
 			}
 		}
@@ -338,11 +330,10 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 
 	// Stream ended without a proper finish (no stop/tool_calls reason received).
 	// Flush any remaining carry from the thinking filter.
-	if flushDisplay, flushHistory := tf.Flush(); flushDisplay != "" || flushHistory != "" {
-		output.WriteString(flushDisplay)
+	if _, flushHistory := tf.Flush(); flushHistory != "" {
 		fullContent.WriteString(flushHistory)
 	}
-	return StreamOutput{Content: output.String(), Usage: usage}
+	return StreamOutput{AssistantText: fullContent.String(), ToolLines: toolLines, Usage: usage}
 }
 
 // executeNextTool executes the first pending tool call and returns a
