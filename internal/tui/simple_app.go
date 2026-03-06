@@ -926,19 +926,22 @@ func (m *SimpleModel) renderFooter() string {
 	} else if m.waitingForApproval {
 		b.WriteString(m.renderApprovalPanel())
 		b.WriteString("\n")
-		b.WriteString(lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFA500")).
-			Render("⚠ Tool execution requires approval. Press [y] to approve, [n] to cancel, [d] to toggle details."))
-		b.WriteString("\n")
 	}
 
-	// Textarea is always rendered, wrapped with a border applied externally
-	// (not via Focused.Base) to avoid double-border.
-	taView := m.textarea.View()
-	if strings.HasPrefix(m.textarea.Value(), "!") {
-		b.WriteString(shellTextareaBorder.Render(taView))
+	// The textarea is replaced by the approval prompt while waiting for
+	// tool approval; otherwise the normal textarea is shown.
+	if m.waitingForApproval {
+		prompt := lipgloss.NewStyle().
+			Foreground(approvalBorderColor).
+			Render("[y] Approve   [n] Deny   [d] Toggle details")
+		b.WriteString(approvalPromptBorder.Render(prompt))
 	} else {
-		b.WriteString(normalTextareaBorder.Render(taView))
+		taView := m.textarea.View()
+		if strings.HasPrefix(m.textarea.Value(), "!") {
+			b.WriteString(shellTextareaBorder.Render(taView))
+		} else {
+			b.WriteString(normalTextareaBorder.Render(taView))
+		}
 	}
 
 	b.WriteString("\n")

@@ -21,4 +21,9 @@ var (
 	shellTextareaBorder = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(shellModeColor)
+
+	approvalBorderColor  = lipgloss.Color("#FFA500")
+	approvalPromptBorder = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(approvalBorderColor)
 )
