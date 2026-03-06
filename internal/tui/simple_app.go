@@ -1004,37 +1004,35 @@ func (m *SimpleModel) renderFooter() string {
 	}
 	b.WriteString(modeStr)
 
-	// Display token usage if available
-	if m.currentUsage != nil {
+	// Display token usage and auto-compact progress
+	_, compactThreshold, autoCompact := m.contextMgr.CompactionStatus(m.messages)
+	if m.currentUsage != nil || (autoCompact && compactThreshold > 0) {
 		b.WriteString("\n")
 		usageStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#626262")).
 			Italic(true)
 
-		usageText := fmt.Sprintf("📊 Tokens: Prompt: %d | Completion: %d | Total: %d",
-			m.currentUsage.PromptTokens,
-			m.currentUsage.CompletionTokens,
-			m.currentUsage.TotalTokens)
-
-		b.WriteString(usageStyle.Render(usageText))
-	}
-
-	// Display auto compact progress
-	current, threshold, autoCompact := m.contextMgr.CompactionStatus(m.messages)
-	if autoCompact && threshold > 0 {
-		b.WriteString("\n")
-		pct := current * 100 / threshold
-		if pct > 100 {
-			pct = 100
+		if m.currentUsage != nil {
+			usageText := fmt.Sprintf("📊 Tokens: %d", m.currentUsage.TotalTokens)
+			if autoCompact && compactThreshold > 0 {
+				pct := m.currentUsage.TotalTokens * 100 / compactThreshold
+				if pct > 100 {
+					pct = 100
+				}
+				colorHex := "#626262"
+				if pct >= 80 {
+					colorHex = "#FF4444"
+				} else if pct >= 50 {
+					colorHex = "#FFA500"
+				}
+				usageText += fmt.Sprintf("/%d (%d%% of auto-compact limit)", compactThreshold, pct)
+				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(usageText))
+			} else {
+				b.WriteString(usageStyle.Render(usageText))
+			}
+		} else if autoCompact && compactThreshold > 0 {
+			b.WriteString(usageStyle.Render(fmt.Sprintf("🗜 Auto-compact at %d tokens", compactThreshold)))
 		}
-		colorHex := "#626262"
-		if pct >= 80 {
-			colorHex = "#FF4444"
-		} else if pct >= 50 {
-			colorHex = "#FFA500"
-		}
-		compactText := fmt.Sprintf("🗜 Auto-compact: %d/%d tokens (%d%%)", current, threshold, pct)
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(compactText))
 	}
 
 	return b.String()
