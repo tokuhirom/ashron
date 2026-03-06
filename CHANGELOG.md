@@ -1,5 +1,8 @@
 # Changelog
 
+## [v2026.306.2](https://github.com/tokuhirom/ashron/compare/v2026.306.1...v2026.306.2) - 2026-03-06
+- chore(deps): update dependency go to v1.26.1 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/100
+
 ## [v2026.306.1](https://github.com/tokuhirom/ashron/compare/v2026.306.0...v2026.306.1) - 2026-03-06
 - fix: replace textarea with approval prompt when waiting for tool approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/94
 - feat: show colored diff by default for apply_patch approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/96
