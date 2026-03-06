@@ -156,6 +156,7 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 
 	slog.Debug("Starting to process stream")
 	m.currentOperation = "Receiving AI response"
+	m.streamingChars = 0
 
 	for event := range stream {
 		if event.Error != nil {
@@ -191,6 +192,7 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 					_, historyChunk := tf.Feed(choice.Delta.Content)
 
 					fullContent.WriteString(historyChunk)
+					m.streamingChars = fullContent.Len()
 					slog.Debug("Received content chunk", "chunk", chunkCount, "contentLength", len(choice.Delta.Content), "totalLength", fullContent.Len())
 
 					// Update message history incrementally so that partial content is
