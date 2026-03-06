@@ -429,19 +429,34 @@ func toolCallSummaryLines(tc api.ToolCall) []string {
 		}
 		return append(lines, "  └ execute_command")
 	}
-	if tc.Function.Name == "apply_patch" {
+	if tc.Function.Name == "search_and_replace" {
 		var args struct {
-			Path  string `json:"path"`
-			Patch string `json:"patch"`
+			Path    string `json:"path"`
+			Search  string `json:"search"`
+			Replace string `json:"replace"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args.Path == "" {
-			return append(lines, "  └ Apply patch")
+			return append(lines, "  └ Search and replace")
 		}
-		added := strings.Count(args.Patch, "\n+")
-		removed := strings.Count(args.Patch, "\n-")
 		return append(lines,
-			"  └ Apply patch: "+args.Path,
-			fmt.Sprintf("    patch lines: +%d -%d", added, removed),
+			"  └ Search and replace: "+args.Path,
+			"    search: "+truncateForApproval(args.Search),
+			"    replace: "+truncateForApproval(args.Replace),
+			"    backup will be created before apply",
+		)
+	}
+	if tc.Function.Name == "replace_range" {
+		var args struct {
+			Path      string `json:"path"`
+			StartLine int    `json:"start_line"`
+			EndLine   int    `json:"end_line"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args.Path == "" {
+			return append(lines, "  └ Replace range")
+		}
+		return append(lines,
+			"  └ Replace range: "+args.Path,
+			fmt.Sprintf("    lines: %d-%d", args.StartLine, args.EndLine),
 			"    backup will be created before apply",
 		)
 	}

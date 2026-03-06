@@ -1205,7 +1205,7 @@ func summarizeToolForApproval(tc api.ToolCall) string {
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Command) != "" {
 			oneLiner = "execute_command: " + truncateForApproval(args.Command)
 		}
-	case "read_file", "write_file", "list_directory", "apply_patch":
+	case "read_file", "write_file", "list_directory", "search_and_replace", "replace_range":
 		var args struct {
 			Path string `json:"path"`
 		}
@@ -1248,8 +1248,10 @@ func approvalWhy(tc api.ToolCall) string {
 		return "Runs a shell command."
 	case "write_file":
 		return "Writes file contents; existing files are backed up before overwrite."
-	case "apply_patch":
-		return "Applies minimal patch hunks with context matching and backup."
+	case "search_and_replace":
+		return "Replaces all matching text in a file and creates a backup first."
+	case "replace_range":
+		return "Replaces a specific line range in a file and creates a backup first."
 	case "read_file":
 		return "Reads file contents."
 	case "list_directory":
@@ -1288,18 +1290,18 @@ func approvalDanger(tc api.ToolCall) (bool, string) {
 				return true, "Writes to system-managed path: " + root
 			}
 		}
-	case "apply_patch":
+	case "search_and_replace", "replace_range":
 		var args struct {
 			Path string `json:"path"`
 		}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
-			return true, "Could not parse patch target path."
+			return true, "Could not parse target path."
 		}
 		path := filepath.Clean(args.Path)
 		dangerRoots := []string{"/etc", "/usr", "/bin", "/sbin", "/lib", "/boot", "/System"}
 		for _, root := range dangerRoots {
 			if path == root || strings.HasPrefix(path, root+"/") {
-				return true, "Patches system-managed path: " + root
+				return true, "Edits system-managed path: " + root
 			}
 		}
 	}
@@ -1386,42 +1388,33 @@ func approvalInlineDetail(tc api.ToolCall) string {
 		}
 		return strings.TrimRight(sb.String(), "\n")
 
-	case "apply_patch":
-		var patchArgs tools.ApplyPatchArgs
-		if err := json.Unmarshal([]byte(tc.Function.Arguments), &patchArgs); err != nil || patchArgs.Patch == "" {
+	case "search_and_replace":
+		var args struct {
+			Search  string `json:"search"`
+			Replace string `json:"replace"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return ""
 		}
-		return formatPatchForApproval(patchArgs.Patch)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render(
+			"     search: " + truncateForApproval(args.Search) + "\n     replace: " + truncateForApproval(args.Replace),
+		)
+
+	case "replace_range":
+		var args struct {
+			StartLine int    `json:"start_line"`
+			EndLine   int    `json:"end_line"`
+			Content   string `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return ""
+		}
+		preview := truncateForApproval(args.Content)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render(
+			fmt.Sprintf("     lines: %d-%d\n     content: %s", args.StartLine, args.EndLine, preview),
+		)
 	}
 	return ""
-}
-
-// formatPatchForApproval renders a unified-diff patch string with coloured
-// output suitable for display inside the approval panel:
-//
-//   - Added lines (+) are green
-//   - Removed lines (-) are red
-//   - Hunk headers (@@) are cyan
-//   - Context lines are dim grey
-func formatPatchForApproval(patch string) string {
-	var sb strings.Builder
-	for _, line := range strings.Split(strings.TrimRight(patch, "\n"), "\n") {
-		var styled string
-		switch {
-		case strings.HasPrefix(line, "+"):
-			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B")).Render(line)
-		case strings.HasPrefix(line, "-"):
-			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(line)
-		case strings.HasPrefix(line, "@@"):
-			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#8BE9FD")).Render(line)
-		default:
-			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render(line)
-		}
-		sb.WriteString("     ")
-		sb.WriteString(styled)
-		sb.WriteString("\n")
-	}
-	return strings.TrimRight(sb.String(), "\n")
 }
 
 func truncateForApproval(s string) string {
@@ -1448,7 +1441,7 @@ func (m *SimpleModel) toggleCollaborationMode() {
 	switch m.collaborationMode {
 	case "default":
 		m.collaborationMode = "auto_edit"
-		m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Accept Edits. File edits (write_file, apply_patch) are auto-approved. Execute file changes directly; commands still require approval."))
+		m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Accept Edits. File edits (write_file, search_and_replace, replace_range) are auto-approved. Execute file changes directly; commands still require approval."))
 		m.AddDisplayContent(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#04B575")).
 			Render("Mode switched: ACCEPT EDITS"))
@@ -1936,7 +1929,7 @@ func requiredFSAccess(tc api.ToolCall, workspaceRoot string) (fsAccessRequest, b
 			return fsAccessRequest{}, false, err
 		}
 		rawPath = p
-	case "write_file", "apply_patch":
+	case "write_file", "search_and_replace", "replace_range":
 		kind = fsWrite
 		p, err := parsePath(tc.Function.Arguments)
 		if err != nil {
@@ -2014,8 +2007,9 @@ func (m *SimpleModel) checkToolApproval() {
 
 // fileEditTools is the set of tools auto-approved in "accept edits" mode.
 var fileEditTools = map[string]bool{
-	"write_file":  true,
-	"apply_patch": true,
+	"write_file":         true,
+	"search_and_replace": true,
+	"replace_range":      true,
 }
 
 // isAutoApproved checks if a tool is auto-approved

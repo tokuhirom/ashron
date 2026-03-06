@@ -89,23 +89,54 @@ func GetAllTools() []ToolInfo {
 			callback: WriteFile,
 		},
 		{
-			Name:        "apply_patch",
-			Description: "Safely apply minimal patch hunks to a file with backup and failure hints",
+			Name:        "search_and_replace",
+			Description: "Replace all occurrences of a string in a file",
 			Parameters: api.FunctionParameters{
 				Type: "object",
 				Properties: map[string]api.FunctionProperty{
 					"path": {
 						Type:        "string",
-						Description: "The file path to patch",
+						Description: "The file path to edit",
 					},
-					"patch": {
+					"search": {
 						Type:        "string",
-						Description: "Unified diff hunks (lines starting with @@ ... @@ and +/ -/ context lines)",
+						Description: "The literal string to search for",
+					},
+					"replace": {
+						Type:        "string",
+						Description: "The replacement string",
 					},
 				},
-				Required: []string{"path", "patch"},
+				Required: []string{"path", "search", "replace"},
 			},
-			callback: ApplyPatch,
+			callback: SearchAndReplace,
+		},
+		{
+			Name:        "replace_range",
+			Description: "Replace a 1-based inclusive line range in a file",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"path": {
+						Type:        "string",
+						Description: "The file path to edit",
+					},
+					"start_line": {
+						Type:        "integer",
+						Description: "Start line number (1-based, inclusive)",
+					},
+					"end_line": {
+						Type:        "integer",
+						Description: "End line number (1-based, inclusive)",
+					},
+					"content": {
+						Type:        "string",
+						Description: "Replacement content for that line range",
+					},
+				},
+				Required: []string{"path", "start_line", "end_line", "content"},
+			},
+			callback: ReplaceRange,
 		},
 		{
 			Name:        "execute_command",

@@ -158,7 +158,8 @@ On startup (when sessions exist), Ashron shows an interactive session picker so 
 - **read_file** - Read contents of a file
 - **read_skill** - Read full `SKILL.md` content for an installed skill by name
 - **write_file** - Write content with change summary (`lines old->new, +/ -`), atomic apply, and overwrite backup
-- **apply_patch** - Apply minimal unified diff hunks with backup, failure location details, and retry hints
+- **search_and_replace** - Replace all literal matches in a file with backup
+- **replace_range** - Replace a specific 1-based line range in a file with backup
 - **list_directory** - List files in a directory
 
 ### Command Execution
@@ -268,7 +269,7 @@ Behavior and configuration:
 
 ### Workspace Filesystem Boundary
 
-File tools (`read_file`, `list_directory`, `write_file`, `apply_patch`) are allowed by default only under the current workspace directory.
+File tools (`read_file`, `list_directory`, `write_file`, `search_and_replace`, `replace_range`) are allowed by default only under the current workspace directory.
 
 - Access outside workspace requires explicit approval.
 - In the approval prompt:
