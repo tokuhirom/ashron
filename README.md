@@ -18,6 +18,7 @@ Ashron is a TUI-based AI coding assistant for developers. It provides an interac
 - **Safety First** - Tool approval system with danger hints and detail toggle
 - **AGENTS.md** - [AGENTS.md](https://agents.md) supported.
 - **ACP Support** - Run as an [Agent Client Protocol](https://agentclientprotocol.com/) server for JetBrains IDE and Zed integration
+- **MCP Client Support** - Call tools on external [Model Context Protocol](https://modelcontextprotocol.io/) servers
 
 ## Installation
 
@@ -317,6 +318,32 @@ Then restart your JetBrains IDE. Ashron will appear in the AI Chat agent list.
 - Uses the same tool approval rules as the TUI (auto-approves safe tools, asks client permission for dangerous ones via `session/request_permission`)
 - Markdown theme can be configured via `GLAMOUR_STYLE` env var (`dark` by default, set `light` for light terminals)
 
+## MCP (Model Context Protocol) Integration
+
+Ashron can call tools provided by external MCP servers through the built-in `mcp_call` tool.
+
+### Configure MCP Servers
+
+```yaml
+mcp_servers:
+  filesystem:
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - "."
+    startup_timeout: 15s
+    call_timeout: 30s
+```
+
+### Use From Chat
+
+Ask Ashron to run `mcp_call` with:
+
+- `server`: configured server name
+- `tool`: remote MCP tool name
+- `arguments`: JSON object for that tool
+
 ## Command Line Options
 
 ```bash
@@ -381,6 +408,7 @@ ashron/
 ├── cmd/ashron/          # Application entry point
 ├── internal/
 │   ├── acp/            # ACP server (Agent Client Protocol, JSON-RPC 2.0 over stdio)
+│   ├── mcp/            # MCP client transport and tool invocation
 │   ├── api/            # OpenAI API client
 │   ├── config/         # Configuration management
 │   ├── context/        # Context management & compaction
@@ -416,7 +444,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [x] Multiple conversation sessions
 - [x] Conversation history persistence
 - [x] ACP (Agent Client Protocol) support for JetBrains/Zed
-- [ ] MCP support
+- [x] MCP support (external server calls via `mcp_call`)
 - [ ] Theme customization
 - [ ] Image/file upload support
 

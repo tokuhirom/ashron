@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestActiveContextUsesDefaultWhenModelOverrideMissing(t *testing.T) {
 	cfg := &Config{
@@ -99,5 +102,56 @@ func TestConvertConfigMergesModelContextOverride(t *testing.T) {
 	}
 	if activeCtx.MaxTokens != 32768 {
 		t.Fatalf("active context should use model override, got %d", activeCtx.MaxTokens)
+	}
+}
+
+func TestConvertConfigParsesMCPServers(t *testing.T) {
+	cfg, err := convertConfig(rawConfig{
+		Default: rawDefaultConfig{Provider: "openai", Model: "gpt4"},
+		Providers: map[string]rawProviderConfig{
+			"openai": {
+				Type:    "openai-compat",
+				BaseURL: "https://api.openai.com/v1",
+				Timeout: "5m",
+				Models: map[string]rawModelConfig{
+					"gpt4": {Model: "gpt-4.1"},
+				},
+			},
+		},
+		Tools: rawToolsConfig{CommandTimeout: "10m"},
+		DefaultContext: rawContextConfig{
+			MaxMessages:     50,
+			MaxTokens:       65535,
+			CompactionRatio: 0.5,
+		},
+		MCPServers: map[string]rawMCPServerConfig{
+			"filesystem": {
+				Command:        "npx",
+				Args:           []string{"-y", "@modelcontextprotocol/server-filesystem", "."},
+				Env:            map[string]string{"NODE_ENV": "production"},
+				WorkingDir:     "/tmp",
+				StartupTimeout: "2s",
+				CallTimeout:    "7s",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("convertConfig returned error: %v", err)
+	}
+	mcp, ok := cfg.MCPServers["filesystem"]
+	if !ok {
+		t.Fatalf("expected mcp server config to be present")
+	}
+	if mcp.Command != "npx" || len(mcp.Args) == 0 {
+		t.Fatalf("unexpected mcp server command/args: %+v", mcp)
+	}
+	if mcp.StartupTimeout != 2*time.Second {
+		t.Fatalf("unexpected startup timeout: %v", mcp.StartupTimeout)
+	}
+	if mcp.CallTimeout != 7*time.Second {
+		t.Fatalf("unexpected call timeout: %v", mcp.CallTimeout)
+	}
+	if cfg.Tools.MCPServers["filesystem"].Command != "npx" {
+		t.Fatalf("tools config should also include mcp servers")
 	}
 }
