@@ -285,6 +285,21 @@ func GetAllTools() []ToolInfo {
 			callback: GitGrep,
 		},
 		{
+			Name:        "get_diagnostics",
+			Description: "Get language server diagnostics (errors, warnings) for a source file. Requires the appropriate language server to be installed (gopls for Go, pyright for Python, typescript-language-server for TS/JS, rust-analyzer for Rust, clangd for C/C++).",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"path": {
+						Type:        "string",
+						Description: "Path to the source file to check",
+					},
+				},
+				Required: []string{"path"},
+			},
+			callback: GetDiagnostics,
+		},
+		{
 			Name:        "git_ls_files",
 			Description: "List files in git repository",
 			Parameters: api.FunctionParameters{
