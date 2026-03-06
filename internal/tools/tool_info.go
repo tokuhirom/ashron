@@ -17,6 +17,29 @@ type ToolInfo struct {
 func GetAllTools() []ToolInfo {
 	return []ToolInfo{
 		{
+			Name:        "mcp_call",
+			Description: "Call a tool on a configured external MCP server",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"server": {
+						Type:        "string",
+						Description: "MCP server name from config mcp_servers",
+					},
+					"tool": {
+						Type:        "string",
+						Description: "Tool name exposed by the target MCP server",
+					},
+					"arguments": {
+						Type:        "object",
+						Description: "Tool arguments object passed to MCP tools/call",
+					},
+				},
+				Required: []string{"server", "tool"},
+			},
+			callback: MCPCall,
+		},
+		{
 			Name:        "read_file",
 			Description: "Read the contents of a file",
 			Parameters: api.FunctionParameters{

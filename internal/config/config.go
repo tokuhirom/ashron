@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -14,6 +15,7 @@ type Config struct {
 	Providers      map[string]ProviderConfig
 	Tools          ToolsConfig
 	DefaultContext ContextConfig
+	MCPServers     map[string]MCPServerConfig
 }
 
 type DefaultConfig struct {
@@ -42,6 +44,7 @@ type ToolsConfig struct {
 	CommandTimeout      time.Duration
 	SandboxMode         string
 	Yolo                bool
+	MCPServers          map[string]MCPServerConfig
 }
 
 type ContextConfig struct {
@@ -51,12 +54,22 @@ type ContextConfig struct {
 	AutoCompact     bool
 }
 
+type MCPServerConfig struct {
+	Command        string
+	Args           []string
+	Env            map[string]string
+	WorkingDir     string
+	StartupTimeout time.Duration
+	CallTimeout    time.Duration
+}
+
 // rawConfig mirrors Config but uses string for Duration fields to support YAML parsing.
 type rawConfig struct {
-	Default        rawDefaultConfig             `yaml:"default"`
-	Providers      map[string]rawProviderConfig `yaml:"providers"`
-	Tools          rawToolsConfig               `yaml:"tools"`
-	DefaultContext rawContextConfig             `yaml:"default_context"`
+	Default        rawDefaultConfig              `yaml:"default"`
+	Providers      map[string]rawProviderConfig  `yaml:"providers"`
+	Tools          rawToolsConfig                `yaml:"tools"`
+	DefaultContext rawContextConfig              `yaml:"default_context"`
+	MCPServers     map[string]rawMCPServerConfig `yaml:"mcp_servers"`
 }
 
 type rawDefaultConfig struct {
@@ -98,6 +111,15 @@ type rawContextOverrideConfig struct {
 	MaxTokens       *int     `yaml:"max_tokens"`
 	CompactionRatio *float32 `yaml:"compaction_ratio"`
 	AutoCompact     *bool    `yaml:"auto_compact"`
+}
+
+type rawMCPServerConfig struct {
+	Command        string            `yaml:"command"`
+	Args           []string          `yaml:"args"`
+	Env            map[string]string `yaml:"env"`
+	WorkingDir     string            `yaml:"working_dir"`
+	StartupTimeout string            `yaml:"startup_timeout"`
+	CallTimeout    string            `yaml:"call_timeout"`
 }
 
 func Load() (*Config, error) {
@@ -183,6 +205,10 @@ func convertConfig(raw rawConfig) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid tools.command_timeout: %w", err)
 	}
+	mcpServers, err := convertMCPServers(raw.MCPServers)
+	if err != nil {
+		return nil, err
+	}
 
 	autoCompact := true
 	if raw.DefaultContext.AutoCompact != nil {
@@ -231,9 +257,41 @@ func convertConfig(raw rawConfig) (*Config, error) {
 			MaxOutputSize:       raw.Tools.MaxOutputSize,
 			CommandTimeout:      cmdTimeout,
 			SandboxMode:         raw.Tools.SandboxMode,
+			MCPServers:          mcpServers,
 		},
 		DefaultContext: defaultContext,
+		MCPServers:     mcpServers,
 	}, nil
+}
+
+func convertMCPServers(raw map[string]rawMCPServerConfig) (map[string]MCPServerConfig, error) {
+	out := make(map[string]MCPServerConfig, len(raw))
+	for name, cfg := range raw {
+		if strings.TrimSpace(cfg.Command) == "" {
+			return nil, fmt.Errorf("mcp_servers.%s.command is required", name)
+		}
+		startupTimeout, err := parseDuration(cfg.StartupTimeout, 15*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("invalid mcp_servers.%s.startup_timeout: %w", name, err)
+		}
+		callTimeout, err := parseDuration(cfg.CallTimeout, 30*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("invalid mcp_servers.%s.call_timeout: %w", name, err)
+		}
+		env := make(map[string]string, len(cfg.Env))
+		for k, v := range cfg.Env {
+			env[k] = v
+		}
+		out[name] = MCPServerConfig{
+			Command:        cfg.Command,
+			Args:           append([]string(nil), cfg.Args...),
+			Env:            env,
+			WorkingDir:     cfg.WorkingDir,
+			StartupTimeout: startupTimeout,
+			CallTimeout:    callTimeout,
+		}
+	}
+	return out, nil
 }
 
 func mergeContext(base ContextConfig, override *rawContextOverrideConfig) ContextConfig {
