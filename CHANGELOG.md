@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.306.1](https://github.com/tokuhirom/ashron/compare/v2026.306.0...v2026.306.1) - 2026-03-06
+- fix: replace textarea with approval prompt when waiting for tool approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/94
+- feat: show colored diff by default for apply_patch approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/96
+- feat: show full command/content in approval panel by default by @tokuhirom in https://github.com/tokuhirom/ashron/pull/98
+
 ## [v2026.306.0](https://github.com/tokuhirom/ashron/compare/v2026.305.3...v2026.306.0) - 2026-03-06
 - feat: apply_patch相当の安全編集ツールを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/86
 - feat(tui): add @ file path completion in input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/88
