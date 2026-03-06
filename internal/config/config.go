@@ -180,7 +180,7 @@ func applyDefaults(raw *rawConfig) {
 		raw.Default.Model = "gpt4"
 	}
 	if len(raw.Tools.AutoApproveTools) == 0 {
-		raw.Tools.AutoApproveTools = []string{"read_file", "read_skill", "list_directory", "list_tools", "git_ls_files", "git_grep", "get_diagnostics", "memory_list"}
+		raw.Tools.AutoApproveTools = []string{"read_file", "read_skill", "list_directory", "list_tools", "get_diagnostics", "memory_list"}
 	}
 	if raw.Tools.MaxOutputSize == 0 {
 		raw.Tools.MaxOutputSize = 50000
@@ -441,8 +441,6 @@ tools:
     - read_skill
     - list_directory
     - list_tools
-    - git_ls_files
-    - git_grep
   auto_approve_commands:
     - /^git add .*$/
   max_output_size: 50000

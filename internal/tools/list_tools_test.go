@@ -24,8 +24,6 @@ func TestListTools(t *testing.T) {
 		"wait_subagent",
 		"list_subagents",
 		"close_subagent",
-		"git_grep",
-		"git_ls_files",
 	}
 
 	for _, tool := range expectedTools {
@@ -67,8 +65,6 @@ func TestListToolsJSON(t *testing.T) {
 		`"wait_subagent"`,
 		`"list_subagents"`,
 		`"close_subagent"`,
-		`"git_grep"`,
-		`"git_ls_files"`,
 	}
 
 	for _, tool := range expectedTools {

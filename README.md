@@ -101,8 +101,6 @@ tools:
     - read_skill
     - list_directory
     - list_tools
-    - git_ls_files
-    - git_grep
   auto_approve_commands:
     - /^git add .*$/
   max_output_size: 50000
