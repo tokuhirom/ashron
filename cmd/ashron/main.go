@@ -96,24 +96,6 @@ func main() {
 		if loadErr != nil {
 			log.Fatalf("Failed to load session: %v", loadErr)
 		}
-	} else {
-		summaries, listErr := session.ListSummaries(30)
-		if listErr != nil {
-			slog.Warn("Failed to list sessions", "error", listErr)
-		} else if len(summaries) > 0 {
-			pick, pickErr := tui.SelectSessionInteractive(summaries)
-			if pickErr != nil {
-				slog.Warn("Session picker failed", "error", pickErr)
-			} else if pick.Cancelled {
-				os.Exit(0)
-			} else if pick.SessionID != "" {
-				var loadErr error
-				sess, loadErr = session.Load(pick.SessionID)
-				if loadErr != nil {
-					log.Fatalf("Failed to load selected session: %v", loadErr)
-				}
-			}
-		}
 	}
 
 	// Create the simple TUI model (streaming mode)
