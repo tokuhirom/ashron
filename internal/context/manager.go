@@ -1,12 +1,18 @@
 package context
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
-
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
+)
+
+const (
+	// recentMessagesToKeep is the number of recent messages preserved verbatim
+	// after compaction (kept alongside the LLM-generated summary).
+	recentMessagesToKeep = 20
+
+	// toolOutputTruncateLen is the maximum bytes kept for tool result content
+	// in messages that fall outside the recent window during pruning.
+	toolOutputTruncateLen = 200
 )
 
 // Manager handles context management and compaction
@@ -21,25 +27,20 @@ func NewManager(cfg *config.ContextConfig) *Manager {
 	}
 }
 
-// GetTokenUsage estimates the token usage of messages
+// GetTokenUsage estimates the token usage of messages using ~4 chars per token.
 func (m *Manager) GetTokenUsage(messages []api.Message) int {
-	// Simple estimation: ~4 characters per token
 	totalChars := 0
 	for _, msg := range messages {
 		totalChars += len(msg.Content)
-
-		// Add tool calls
-		if len(msg.ToolCalls) > 0 {
-			data, _ := json.Marshal(msg.ToolCalls)
-			totalChars += len(data)
+		for _, tc := range msg.ToolCalls {
+			totalChars += len(tc.Function.Name) + len(tc.Function.Arguments)
 		}
 	}
-
 	return totalChars / 4
 }
 
-// CompactionStatus returns the current token usage and the compaction threshold.
-// It also returns whether auto compact is enabled.
+// CompactionStatus returns the current estimated token usage, the compaction
+// threshold, and whether auto-compact is enabled.
 func (m *Manager) CompactionStatus(messages []api.Message) (current, threshold int, autoCompact bool) {
 	current = m.GetTokenUsage(messages)
 	threshold = int(float32(m.config.MaxTokens) * m.config.CompactionRatio)
@@ -47,101 +48,69 @@ func (m *Manager) CompactionStatus(messages []api.Message) (current, threshold i
 	return
 }
 
-// NeedsCompaction checks if context needs compaction
+// NeedsCompaction reports whether the context should be compacted.
 func (m *Manager) NeedsCompaction(messages []api.Message) bool {
 	if !m.config.AutoCompact {
 		return false
 	}
-
 	usage := m.GetTokenUsage(messages)
 	threshold := int(float32(m.config.MaxTokens) * m.config.CompactionRatio)
-
 	return usage > threshold || len(messages) > m.config.MaxMessages
 }
 
-// Compact reduces the context size while preserving important information
-func (m *Manager) Compact(messages []api.Message) []api.Message {
-	if len(messages) <= 3 {
-		// Keep at least system message, one user message, and one assistant message
+// Prune reduces token usage by truncating large tool outputs in messages
+// outside the recent window without removing messages or breaking message
+// pairing. This is a cheap pre-step before LLM-based summarization.
+func (m *Manager) Prune(messages []api.Message) []api.Message {
+	if len(messages) <= recentMessagesToKeep {
 		return messages
 	}
-
-	// Always keep the system message
-	compacted := []api.Message{messages[0]}
-
-	// Strategy 1: Summarize old messages
-	summarized := m.summarizeMessages(messages[1 : len(messages)/2])
-	if summarized != nil {
-		compacted = append(compacted, *summarized)
-	}
-
-	// Strategy 2: Keep recent messages
-	recentStart := len(messages) / 2
-	if recentStart < len(messages)-m.config.MaxMessages/2 {
-		recentStart = len(messages) - m.config.MaxMessages/2
-	}
-
-	for i := recentStart; i < len(messages); i++ {
-		// Skip tool messages in compacted history
-		if messages[i].Role != "tool" {
-			compacted = append(compacted, messages[i])
+	cutoff := len(messages) - recentMessagesToKeep
+	result := make([]api.Message, len(messages))
+	copy(result, messages)
+	for i := 0; i < cutoff; i++ {
+		if result[i].Role == "tool" && len(result[i].Content) > toolOutputTruncateLen {
+			result[i].Content = result[i].Content[:toolOutputTruncateLen] + "\n[truncated]"
 		}
 	}
-
-	return compacted
+	return result
 }
 
-// summarizeMessages creates a summary of multiple messages
-func (m *Manager) summarizeMessages(messages []api.Message) *api.Message {
-	if len(messages) == 0 {
-		return nil
+// BuildCompacted assembles a new message list from an LLM-generated summary
+// and the most recent messages. Initial system messages are always kept.
+func (m *Manager) BuildCompacted(summary string, original []api.Message) []api.Message {
+	var result []api.Message
+
+	// Keep leading system messages (instructions, context, etc.)
+	i := 0
+	for i < len(original) && original[i].Role == "system" {
+		result = append(result, original[i])
+		i++
 	}
 
-	var summary strings.Builder
-	summary.WriteString("Previous conversation summary:\n")
+	// Insert the LLM-generated summary as a system message.
+	result = append(result, api.NewSystemMessage(
+		"The following is a summary of the conversation so far:\n\n"+summary,
+	))
 
-	userMsgCount := 0
-	assistantMsgCount := 0
-	toolCallCount := 0
+	// Append the most recent messages verbatim, starting at a user-message
+	// boundary so the API always receives well-formed turn pairs.
+	recent := safeRecentMessages(original, recentMessagesToKeep)
+	result = append(result, recent...)
 
-	for _, msg := range messages {
-		switch msg.Role {
-		case "user":
-			userMsgCount++
-			if userMsgCount <= 3 {
-				// Include first few user messages
-				summary.WriteString("- User: ")
-				if len(msg.Content) > 100 {
-					summary.WriteString(msg.Content[:100] + "...")
-				} else {
-					summary.WriteString(msg.Content)
-				}
-				summary.WriteString("\n")
-			}
+	return result
+}
 
-		case "assistant":
-			assistantMsgCount++
-			if len(msg.ToolCalls) > 0 {
-				toolCallCount += len(msg.ToolCalls)
-			}
-
-		case "tool":
-			// Skip tool results in summary
-		}
+// safeRecentMessages returns up to n recent messages, adjusted to start at
+// a user-message boundary so tool_call / tool pairs are never split.
+func safeRecentMessages(messages []api.Message, n int) []api.Message {
+	if len(messages) <= n {
+		return messages
 	}
-
-	// Add statistics
-	summary.WriteString("\n")
-	summary.WriteString("Summary statistics:\n")
-	summary.WriteString("- ")
-	summary.WriteString(strings.Join([]string{
-		fmt.Sprintf("%d", userMsgCount) + " user messages",
-		fmt.Sprintf("%d", assistantMsgCount) + " assistant responses",
-		fmt.Sprintf("%d", toolCallCount) + " tool calls executed",
-	}, ", "))
-
-	return &api.Message{
-		Role:    "system",
-		Content: summary.String(),
+	start := len(messages) - n
+	// Walk forward until we land on a user message.
+	for start < len(messages) && messages[start].Role != "user" {
+		start++
 	}
+	return messages[start:]
 }

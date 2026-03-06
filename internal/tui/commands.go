@@ -47,16 +47,12 @@ func NewCommandRegistry() *CommandRegistry {
 			},
 			"/compact": {
 				Name:        "/compact",
-				Description: "Compact conversation context",
+				Description: "Compact conversation context using LLM summarization",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
-					originalCount, newCount := m.CompactContext()
-
-					msg := lipgloss.NewStyle().
+					m.AddDisplayContent(lipgloss.NewStyle().
 						Foreground(lipgloss.Color("#626262")).
-						Render(fmt.Sprintf("Context compacted: %d → %d messages", originalCount, newCount))
-
-					m.AddDisplayContent(msg, "")
-					return nil
+						Render("Compacting context..."), "")
+					return m.CompactContext()
 				},
 			},
 			"/commit": {

@@ -101,22 +101,17 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 
 	return func() tea.Msg {
 		// Check if context needs compaction
-		if m.activeContext.AutoCompact {
-			usage := m.contextMgr.GetTokenUsage(m.messages)
-			threshold := int(float32(m.activeContext.MaxTokens) * m.activeContext.CompactionRatio)
-			slog.Debug("Checking context compaction",
-				slog.Int("usage", usage),
-				slog.Int("threshold", threshold),
-				slog.Int("maxTokens", m.activeContext.MaxTokens))
-
-			if usage > threshold {
-				slog.Info("Compacting context",
-					slog.Int("beforeMessages", len(m.messages)),
-					slog.Int("tokenUsage", usage))
-				m.messages = m.contextMgr.Compact(m.messages)
-				slog.Info("Context compacted",
-					slog.Int("afterMessages", len(m.messages)))
+		if m.contextMgr.NeedsCompaction(m.messages) {
+			slog.Info("Compacting context", slog.Int("beforeMessages", len(m.messages)))
+			pruned := m.contextMgr.Prune(m.messages)
+			summary, err := m.apiClient.Summarize(ctx, pruned)
+			if err != nil {
+				slog.Warn("Context summarization failed, keeping pruned messages", slog.Any("error", err))
+				m.messages = pruned
+			} else {
+				m.messages = m.contextMgr.BuildCompacted(summary, m.messages)
 			}
+			slog.Info("Context compacted", slog.Int("afterMessages", len(m.messages)))
 		}
 
 		// Stream the response

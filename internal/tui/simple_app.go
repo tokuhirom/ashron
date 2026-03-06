@@ -690,6 +690,21 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case shellCmdMsg:
 		m.handleShellCmdMsg(msg)
 		return m, nil
+
+	case compactDoneMsg:
+		m.messages = msg.compacted
+		if msg.err != nil {
+			errLine := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF7F50")).
+				Render(fmt.Sprintf("Context compaction failed (kept pruned): %v", msg.err))
+			m.AddDisplayContent(errLine, "")
+		} else {
+			info := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				Render(fmt.Sprintf("Context compacted: %d → %d messages", msg.originalCount, len(msg.compacted)))
+			m.AddDisplayContent(info, "")
+		}
+		return m, nil
 	}
 
 	// Update textarea only when the user can freely type
@@ -2032,9 +2047,29 @@ func (m *SimpleModel) AddDisplayContent(content ...string) {
 	m.viewport.GotoBottom()
 }
 
-func (m *SimpleModel) CompactContext() (int, int) {
+type compactDoneMsg struct {
+	originalCount int
+	compacted     []api.Message
+	err           error
+}
+
+// CompactContext starts an async LLM-based context compaction and returns a
+// tea.Cmd that delivers the result as a compactDoneMsg.
+func (m *SimpleModel) CompactContext() tea.Cmd {
 	originalCount := len(m.messages)
-	m.messages = m.contextMgr.Compact(m.messages)
-	newCount := len(m.messages)
-	return originalCount, newCount
+	pruned := m.contextMgr.Prune(m.messages)
+	// Capture needed state so the goroutine does not close over mutable fields.
+	apiClient := m.apiClient
+	contextMgr := m.contextMgr
+	messages := m.messages
+
+	return func() tea.Msg {
+		ctx := context.Background()
+		summary, err := apiClient.Summarize(ctx, pruned)
+		if err != nil {
+			return compactDoneMsg{originalCount: originalCount, compacted: pruned, err: err}
+		}
+		compacted := contextMgr.BuildCompacted(summary, messages)
+		return compactDoneMsg{originalCount: originalCount, compacted: compacted}
+	}
 }

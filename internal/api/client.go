@@ -201,6 +201,71 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 	return eventChan, nil
 }
 
+// Summarize sends a non-streaming chat completion to summarize the given
+// messages. It appends a summarization instruction to the message list and
+// returns the model's text response.
+func (c *Client) Summarize(ctx context.Context, messages []Message) (string, error) {
+	summarizeInstruction := Message{
+		Role: "user",
+		Content: `Please create a concise but comprehensive summary of the conversation above.
+Include:
+- What the user was working on and trying to accomplish
+- Key decisions made and their rationale
+- Files modified or created, commands run, and their outcomes
+- Current state of the work
+- Any constraints, preferences, or important context mentioned
+- What still needs to be done
+
+Write the summary in a way that allows the conversation to continue seamlessly.`,
+	}
+
+	req := &ChatCompletionRequest{
+		Model:       c.modelCfg.Model,
+		Messages:    append(messages, summarizeInstruction),
+		Temperature: c.modelCfg.Temperature,
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("marshal summarize request: %w", err)
+	}
+
+	httpReq, err := c.newRequest(ctx, "POST", "/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("summarize request: %w", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Warn("Failed to close summarize response body", slog.Any("error", err))
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", c.handleError(resp)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read summarize response: %w", err)
+	}
+
+	var completion ChatCompletionResponse
+	if err := json.Unmarshal(respBody, &completion); err != nil {
+		return "", fmt.Errorf("parse summarize response: %w", err)
+	}
+
+	if len(completion.Choices) == 0 || completion.Choices[0].Message.Content == "" {
+		return "", fmt.Errorf("empty summarize response")
+	}
+
+	return completion.Choices[0].Message.Content, nil
+}
+
 // handleError processes API error responses
 func (c *Client) handleError(resp *http.Response) error {
 	body, _ := io.ReadAll(resp.Body)
