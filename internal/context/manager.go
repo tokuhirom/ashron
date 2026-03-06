@@ -38,6 +38,15 @@ func (m *Manager) GetTokenUsage(messages []api.Message) int {
 	return totalChars / 4
 }
 
+// CompactionStatus returns the current token usage and the compaction threshold.
+// It also returns whether auto compact is enabled.
+func (m *Manager) CompactionStatus(messages []api.Message) (current, threshold int, autoCompact bool) {
+	current = m.GetTokenUsage(messages)
+	threshold = int(float32(m.config.MaxTokens) * m.config.CompactionRatio)
+	autoCompact = m.config.AutoCompact
+	return
+}
+
 // NeedsCompaction checks if context needs compaction
 func (m *Manager) NeedsCompaction(messages []api.Message) bool {
 	if !m.config.AutoCompact {

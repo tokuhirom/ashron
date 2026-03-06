@@ -997,6 +997,24 @@ func (m *SimpleModel) renderFooter() string {
 		b.WriteString(usageStyle.Render(usageText))
 	}
 
+	// Display auto compact progress
+	current, threshold, autoCompact := m.contextMgr.CompactionStatus(m.messages)
+	if autoCompact && threshold > 0 {
+		b.WriteString("\n")
+		pct := current * 100 / threshold
+		if pct > 100 {
+			pct = 100
+		}
+		colorHex := "#626262"
+		if pct >= 80 {
+			colorHex = "#FF4444"
+		} else if pct >= 50 {
+			colorHex = "#FFA500"
+		}
+		compactText := fmt.Sprintf("🗜 Auto-compact: %d/%d tokens (%d%%)", current, threshold, pct)
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(compactText))
+	}
+
 	return b.String()
 }
 
