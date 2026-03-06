@@ -22,6 +22,7 @@ import (
 
 	"github.com/tokuhirom/ashron/internal/agentsmd"
 	"github.com/tokuhirom/ashron/internal/customcmd"
+	"github.com/tokuhirom/ashron/internal/memory"
 	"github.com/tokuhirom/ashron/internal/plan"
 	"github.com/tokuhirom/ashron/internal/skills"
 
@@ -352,6 +353,12 @@ You have access to tools for file operations and command execution. Always ask f
 	if skillsPrompt := skills.MetadataPrompt(availableSkills); skillsPrompt != "" {
 		systemPrompt += "\n\n" + skillsPrompt
 	}
+
+	cwd, _ := os.Getwd()
+	if memSection := memory.SystemPromptSection(cwd); memSection != "" {
+		systemPrompt += "\n\n" + memSection
+	}
+
 	return []api.Message{api.NewSystemMessage(systemPrompt)}
 }
 
