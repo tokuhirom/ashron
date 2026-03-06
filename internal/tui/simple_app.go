@@ -1010,7 +1010,15 @@ func (m *SimpleModel) renderApprovalPanel() string {
 
 		sb.WriteString("\n")
 		sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#A0A0A0")).Render("     why: " + why))
-		if m.showApprovalDetail {
+		if tc.Function.Name == "apply_patch" {
+			// Always show the diff for apply_patch so the user can see exactly
+			// what will change before approving.
+			var patchArgs tools.ApplyPatchArgs
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &patchArgs); err == nil && patchArgs.Patch != "" {
+				sb.WriteString("\n")
+				sb.WriteString(formatPatchForApproval(patchArgs.Patch))
+			}
+		} else if m.showApprovalDetail {
 			sb.WriteString("\n")
 			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render("     args: " + truncateForApproval(tc.Function.Arguments)))
 		}
@@ -1167,6 +1175,34 @@ func commandDanger(command string) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+// formatPatchForApproval renders a unified-diff patch string with coloured
+// output suitable for display inside the approval panel:
+//
+//   - Added lines (+) are green
+//   - Removed lines (-) are red
+//   - Hunk headers (@@) are cyan
+//   - Context lines are dim grey
+func formatPatchForApproval(patch string) string {
+	var sb strings.Builder
+	for _, line := range strings.Split(strings.TrimRight(patch, "\n"), "\n") {
+		var styled string
+		switch {
+		case strings.HasPrefix(line, "+"):
+			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B")).Render(line)
+		case strings.HasPrefix(line, "-"):
+			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(line)
+		case strings.HasPrefix(line, "@@"):
+			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#8BE9FD")).Render(line)
+		default:
+			styled = lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render(line)
+		}
+		sb.WriteString("     ")
+		sb.WriteString(styled)
+		sb.WriteString("\n")
+	}
+	return strings.TrimRight(sb.String(), "\n")
 }
 
 func truncateForApproval(s string) string {
