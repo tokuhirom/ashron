@@ -235,7 +235,7 @@ func (s *Server) handleSessionPrompt(req Request) {
 	}
 
 	sess.messages = append(sess.messages, api.NewUserMessage(params.Prompt))
-	builtinTools := tools.GetBuiltinTools()
+	builtinTools := tools.SelectBuiltinTools(params.Prompt)
 
 	// Agentic loop: stream → execute tools → stream again until no tool calls.
 	for {
@@ -366,7 +366,8 @@ func (s *Server) handleSessionPrompt(req Request) {
 			})
 
 			result := s.toolExec.Execute(tc)
-			sess.messages = append(sess.messages, api.NewToolMessage(tc.ID, result.Output))
+			historyOutput := tools.CompactToolResultForHistory(tc.Function.Name, result.Output)
+			sess.messages = append(sess.messages, api.NewToolMessage(tc.ID, historyOutput))
 
 			status := "completed"
 			if result.Error != nil {
