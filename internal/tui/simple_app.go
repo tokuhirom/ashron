@@ -977,7 +977,8 @@ func (m *SimpleModel) renderFooter() string {
 
 	b.WriteString("\n")
 	var modeStr string
-	if m.collaborationMode == "plan" {
+	switch m.collaborationMode {
+	case "plan":
 		modeStr = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFD700")).
 			Bold(true).
@@ -986,7 +987,16 @@ func (m *SimpleModel) renderFooter() string {
 				Foreground(lipgloss.Color("#626262")).
 				Italic(true).
 				Render(" mode (Shift+Tab to toggle)")
-	} else {
+	case "auto_edit":
+		modeStr = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#04B575")).
+			Bold(true).
+			Render("ACCEPT EDITS") +
+			lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#626262")).
+				Italic(true).
+				Render(" mode (Shift+Tab to toggle)")
+	default:
 		modeStr = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#626262")).
 			Italic(true).
@@ -1336,20 +1346,26 @@ func (m *SimpleModel) toggleCollaborationMode() {
 		return
 	}
 
-	if m.collaborationMode == "default" {
+	switch m.collaborationMode {
+	case "default":
+		m.collaborationMode = "auto_edit"
+		m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Accept Edits. File edits (write_file, apply_patch) are auto-approved. Execute file changes directly; commands still require approval."))
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#04B575")).
+			Render("Mode switched: ACCEPT EDITS"))
+	case "auto_edit":
 		m.collaborationMode = "plan"
 		m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Plan. First provide a concise plan and wait for explicit user approval before running tools or making code changes."))
 		m.AddDisplayContent(lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#626262")).
+			Foreground(lipgloss.Color("#FFD700")).
 			Render("Mode switched: PLAN"))
-		return
+	default:
+		m.collaborationMode = "default"
+		m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Default. Execute the request directly when feasible, using tools and edits as needed."))
+		m.AddDisplayContent(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#626262")).
+			Render("Mode switched: DEFAULT"))
 	}
-
-	m.collaborationMode = "default"
-	m.messages = append(m.messages, api.NewSystemMessage("Collaboration mode is Default. Execute the request directly when feasible, using tools and edits as needed."))
-	m.AddDisplayContent(lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#626262")).
-		Render("Mode switched: DEFAULT"))
 }
 
 // updateViewportContent updates the viewport with current display content.
@@ -1774,9 +1790,19 @@ func (m *SimpleModel) checkToolApproval() {
 	}
 }
 
+// fileEditTools is the set of tools auto-approved in "accept edits" mode.
+var fileEditTools = map[string]bool{
+	"write_file":  true,
+	"apply_patch": true,
+}
+
 // isAutoApproved checks if a tool is auto-approved
 func (m *SimpleModel) isAutoApproved(toolName string, arguments string) bool {
 	if m.config.Tools.Yolo {
+		return true
+	}
+
+	if m.collaborationMode == "auto_edit" && fileEditTools[toolName] {
 		return true
 	}
 
