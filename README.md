@@ -371,6 +371,8 @@ Options:
 - `OPENAI_API_KEY` - OpenAI API key (also configurable via `--api-key`)
 - `XDG_CONFIG_HOME` - Override the base config directory (Linux)
 
+When debug logging is enabled (`--debug` or `debug: true`), Ashron writes both execution logs and API communication logs (request/response metadata and streaming lines) to `$XDG_DATA_HOME/ashron/logs/` (or `~/.local/share/ashron/logs/`).
+
 ## Development
 
 ### Prerequisites
