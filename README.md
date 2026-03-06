@@ -147,7 +147,7 @@ debug: false
 - `Esc` - Cancel current API request (while processing) / close command completion
 - `Ctrl+C` - Cancel all running operations (API + subagents) or exit
 - `Ctrl+P` / `Ctrl+N` - Scroll up / down
-- `y` / `n` / `d` - Approve / cancel / toggle details for pending tool calls
+- `y` / `s` / `n` / `d` - Approve once / approve and remember scope in session / cancel / toggle details for pending tool calls
 - `Tab` / `Up` / `Down` - Navigate command completion
 
 In `Plan` mode, assistant responses are automatically saved under `~/.local/share/ashron/plans/` (or `$XDG_DATA_HOME/ashron/plans`).
@@ -267,6 +267,15 @@ Behavior and configuration:
 - If required backend command is missing in `auto` mode, command execution fails with an explicit error.
 - Commands with `sandbox_mode: off` are never auto-approved and always require explicit approval.
 - `--yolo`: disables sandbox and auto-approves all tools for that run (dangerous)
+
+### Workspace Filesystem Boundary
+
+File tools (`read_file`, `list_directory`, `write_file`, `apply_patch`) are allowed by default only under the current workspace directory.
+
+- Access outside workspace requires explicit approval.
+- In the approval prompt:
+  - `y`: approve once
+  - `s`: approve and remember the path scope for the current session
 
 Examples:
 
