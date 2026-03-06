@@ -40,6 +40,8 @@ type SimpleModel struct {
 	currentProviderName string
 	currentModelName    string
 	activeContext       config.ContextConfig
+	workspaceRoot       string
+	fsSessionGrants     map[string]map[string]bool
 
 	// API client
 	apiClient *api.Client
@@ -114,9 +116,31 @@ type SimpleModel struct {
 	viewportDirty bool
 }
 
+type fsAccessKind string
+
+const (
+	fsRead  fsAccessKind = "read"
+	fsWrite fsAccessKind = "write"
+	fsList  fsAccessKind = "list"
+)
+
+type fsAccessRequest struct {
+	Kind fsAccessKind
+	// Path is the absolute target path requested by the tool.
+	Path string
+	// Scope is the directory scope that can be granted for session-level reuse.
+	Scope string
+}
+
 // NewSimpleModel creates a new simplified application model.
 // Pass a non-nil sess to resume an existing session.
 func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, error) {
+	workspaceRoot, err := os.Getwd()
+	if err != nil {
+		workspaceRoot = "."
+	}
+	workspaceRoot = filepath.Clean(workspaceRoot)
+
 	provName, provCfg, err := cfg.ActiveProvider()
 	if err != nil {
 		return nil, err
@@ -185,6 +209,8 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 		currentProviderName:     provName,
 		currentModelName:        modelName,
 		activeContext:           *activeCtx,
+		workspaceRoot:           workspaceRoot,
+		fsSessionGrants:         make(map[string]map[string]bool),
 		apiClient:               apiClient,
 		textarea:                ta,
 		spinner:                 sp,
@@ -374,6 +400,7 @@ func (m *SimpleModel) StartNewSession() tea.Cmd {
 	m.messages = initialMessagesForNewSession(m.availableSkills)
 	m.session.Messages = m.messages
 	m.pendingToolCalls = nil
+	m.fsSessionGrants = make(map[string]map[string]bool)
 	m.waitingForApproval = false
 	m.currentMessage = ""
 	m.currentUsage = nil
@@ -533,6 +560,15 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.waitingForApproval && msg.Text != "" {
 				switch msg.Text {
 				case "y", "Y":
+					m.approvePendingTools()
+					return m, m.startToolExecution()
+				case "s", "S":
+					granted := m.rememberPendingFSAccess()
+					if granted > 0 {
+						m.AddDisplayContent(lipgloss.NewStyle().
+							Foreground(lipgloss.Color("#04B575")).
+							Render(fmt.Sprintf("✓ Remembered %d external filesystem permission(s) for this session", granted)))
+					}
 					m.approvePendingTools()
 					return m, m.startToolExecution()
 				case "n", "N":
@@ -938,9 +974,13 @@ func (m *SimpleModel) renderFooter() string {
 	// The textarea is replaced by the approval prompt while waiting for
 	// tool approval; otherwise the normal textarea is shown.
 	if m.waitingForApproval {
+		promptText := "[y] Approve once   [n] Deny   [d] Toggle details"
+		if len(m.pendingFSAccessRequests()) > 0 {
+			promptText = "[y] Approve once   [s] Allow for session   [n] Deny   [d] Toggle details"
+		}
 		prompt := lipgloss.NewStyle().
 			Foreground(approvalBorderColor).
-			Render("[y] Approve   [n] Deny   [d] Toggle details")
+			Render(promptText)
 		b.WriteString(approvalPromptBorder.Render(prompt))
 	} else {
 		taView := m.textarea.View()
@@ -1017,6 +1057,12 @@ func (m *SimpleModel) renderApprovalPanel() string {
 
 		sb.WriteString("\n")
 		sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#A0A0A0")).Render("     why: " + why))
+		if req, needed, err := requiredFSAccess(tc, m.workspaceRoot); err == nil && needed && !m.hasFSGrant(req.Kind, req.Scope) {
+			sb.WriteString("\n")
+			sb.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFCC66")).
+				Render(fmt.Sprintf("     external fs access: %s %s (scope: %s)", req.Kind, req.Path, req.Scope)))
+		}
 		if detail := approvalInlineDetail(tc); detail != "" {
 			sb.WriteString("\n")
 			sb.WriteString(detail)
@@ -1701,6 +1747,125 @@ func containsString(items []string, target string) bool {
 	return false
 }
 
+func (m *SimpleModel) pendingFSAccessRequests() []fsAccessRequest {
+	reqs := make([]fsAccessRequest, 0)
+	for _, tc := range m.pendingApprovalCalls() {
+		req, needed, err := requiredFSAccess(tc, m.workspaceRoot)
+		if err != nil || !needed {
+			continue
+		}
+		if m.hasFSGrant(req.Kind, req.Scope) {
+			continue
+		}
+		reqs = append(reqs, req)
+	}
+	return reqs
+}
+
+func (m *SimpleModel) rememberPendingFSAccess() int {
+	reqs := m.pendingFSAccessRequests()
+	for _, req := range reqs {
+		m.addFSGrant(req.Kind, req.Scope)
+	}
+	return len(reqs)
+}
+
+func (m *SimpleModel) hasFSGrant(kind fsAccessKind, scope string) bool {
+	grants, ok := m.fsSessionGrants[string(kind)]
+	if !ok {
+		return false
+	}
+	for granted := range grants {
+		if pathWithin(granted, scope) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *SimpleModel) addFSGrant(kind fsAccessKind, scope string) {
+	if m.fsSessionGrants == nil {
+		m.fsSessionGrants = make(map[string]map[string]bool)
+	}
+	key := string(kind)
+	if _, ok := m.fsSessionGrants[key]; !ok {
+		m.fsSessionGrants[key] = make(map[string]bool)
+	}
+	m.fsSessionGrants[key][scope] = true
+}
+
+func requiredFSAccess(tc api.ToolCall, workspaceRoot string) (fsAccessRequest, bool, error) {
+	parsePath := func(arguments string) (string, error) {
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(args.Path) == "" {
+			return "", fmt.Errorf("empty path")
+		}
+		return args.Path, nil
+	}
+
+	var kind fsAccessKind
+	var rawPath string
+	switch tc.Function.Name {
+	case "read_file":
+		kind = fsRead
+		p, err := parsePath(tc.Function.Arguments)
+		if err != nil {
+			return fsAccessRequest{}, false, err
+		}
+		rawPath = p
+	case "list_directory":
+		kind = fsList
+		p, err := parsePath(tc.Function.Arguments)
+		if err != nil {
+			return fsAccessRequest{}, false, err
+		}
+		rawPath = p
+	case "write_file", "apply_patch":
+		kind = fsWrite
+		p, err := parsePath(tc.Function.Arguments)
+		if err != nil {
+			return fsAccessRequest{}, false, err
+		}
+		rawPath = p
+	default:
+		return fsAccessRequest{}, false, nil
+	}
+
+	cleaned := filepath.Clean(rawPath)
+	abs, err := filepath.Abs(cleaned)
+	if err != nil {
+		return fsAccessRequest{}, false, err
+	}
+	abs = filepath.Clean(abs)
+	if pathWithin(workspaceRoot, abs) {
+		return fsAccessRequest{}, false, nil
+	}
+
+	scope := abs
+	if kind == fsRead || kind == fsWrite {
+		scope = filepath.Dir(abs)
+	}
+	return fsAccessRequest{Kind: kind, Path: abs, Scope: scope}, true, nil
+}
+
+func pathWithin(base, target string) bool {
+	base = filepath.Clean(base)
+	target = filepath.Clean(target)
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 // Helper functions for managing messages
 func (m *SimpleModel) addUserMessage(content string) {
 	m.messages = append(m.messages, api.NewUserMessage(content))
@@ -1726,7 +1891,11 @@ func (m *SimpleModel) checkToolApproval() {
 	if needsApproval {
 		m.waitingForApproval = true
 		m.loading = false
-		m.statusMsg = "Tools require approval. Press [y] to approve."
+		if len(m.pendingFSAccessRequests()) > 0 {
+			m.statusMsg = "Tools require approval. [y]=once, [s]=allow filesystem scope for this session."
+		} else {
+			m.statusMsg = "Tools require approval. Press [y] to approve."
+		}
 	} else {
 		m.approvePendingTools()
 	}
@@ -1737,7 +1906,17 @@ func (m *SimpleModel) isAutoApproved(toolName string, arguments string) bool {
 	if m.config.Tools.Yolo {
 		return true
 	}
+	if req, needed, err := requiredFSAccess(api.ToolCall{
+		Function: api.FunctionCall{Name: toolName, Arguments: arguments},
+	}, m.workspaceRoot); err == nil && needed && !m.hasFSGrant(req.Kind, req.Scope) {
+		// Workspace-external filesystem access requires explicit approval
+		// unless the scope was already granted for this session.
+		return false
+	}
 
+	if m.collaborationMode == "auto_edit" && fileEditTools[toolName] {
+		return true
+	}
 	if toolName == "execute_command" {
 		var args tools.ExecuteCommandArgs
 		if err := json.Unmarshal([]byte(arguments), &args); err != nil {

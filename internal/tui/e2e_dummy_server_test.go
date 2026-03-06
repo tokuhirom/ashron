@@ -324,6 +324,9 @@ func newE2EModel(t *testing.T, baseURL string) *SimpleModel {
 	if err != nil {
 		t.Fatalf("NewSimpleModel: %v", err)
 	}
+	// Existing E2E scenarios use temp files outside repo cwd; keep them focused on
+	// tool round-trip behavior rather than workspace permission checks.
+	m.workspaceRoot = "/"
 	return m
 }
 
