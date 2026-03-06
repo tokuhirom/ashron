@@ -115,7 +115,7 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 		}
 
 		// Stream the response
-		builtinTools := tools.GetBuiltinTools()
+		builtinTools := tools.SelectBuiltinTools(m.lastUserInput)
 		slog.Debug("Requesting streaming completion",
 			slog.Int("messages", len(m.messages)),
 			slog.Int("tools", len(builtinTools)))
@@ -364,8 +364,9 @@ func (m *SimpleModel) executeNextTool() tea.Cmd {
 			output.WriteString("\n")
 		}
 
-		// Add tool result to the conversation history.
-		m.messages = append(m.messages, api.NewToolMessage(tc.ID, result.Output))
+		// Keep tool outputs compact in message history to reduce prompt tokens.
+		historyOutput := tools.CompactToolResultForHistory(tc.Function.Name, result.Output)
+		m.messages = append(m.messages, api.NewToolMessage(tc.ID, historyOutput))
 
 		return toolExecutionMsg{
 			results:   []api.ToolResult{result},
