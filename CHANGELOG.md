@@ -1,5 +1,8 @@
 # Changelog
 
+## [v2026.306.3](https://github.com/tokuhirom/ashron/compare/v2026.306.2...v2026.306.3) - 2026-03-06
+- fix: avoid glamour OSC 11 terminal query leaking into bubbletea input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/102
+
 ## [v2026.306.1](https://github.com/tokuhirom/ashron/compare/v2026.306.0...v2026.306.1) - 2026-03-06
 - fix: replace textarea with approval prompt when waiting for tool approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/94
 - feat: show colored diff by default for apply_patch approval by @tokuhirom in https://github.com/tokuhirom/ashron/pull/96
