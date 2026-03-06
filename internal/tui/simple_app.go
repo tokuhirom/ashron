@@ -77,6 +77,9 @@ type SimpleModel struct {
 	// Current streaming message
 	currentMessage string
 
+	// Bytes received during current streaming response (for token estimate display)
+	streamingChars int
+
 	// Operation context for better error messages
 	currentOperation   string
 	operationStartedAt time.Time
@@ -1013,9 +1016,12 @@ func (m *SimpleModel) renderFooter() string {
 		if operation == "" {
 			operation = "Processing"
 		}
+		if operation == "Receiving AI response" && m.streamingChars > 0 {
+			operation = fmt.Sprintf("Receiving AI response (~%d tokens)", m.streamingChars/4)
+		}
 		elapsed := ""
 		if !m.operationStartedAt.IsZero() {
-			elapsed = fmt.Sprintf(" [%s]", time.Since(m.operationStartedAt).Round(100*time.Millisecond))
+			elapsed = fmt.Sprintf(" [%5.1fs]", time.Since(m.operationStartedAt).Seconds())
 		}
 		b.WriteString(m.spinner.View() + " " + operation + elapsed + " (Esc: cancel request, Ctrl+C: cancel all)\n")
 		for _, ag := range m.subagentSummary {
