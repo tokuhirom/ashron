@@ -78,7 +78,8 @@ type SimpleModel struct {
 	currentMessage string
 
 	// Bytes received during current streaming response (for token estimate display)
-	streamingChars int
+	streamingChars       int
+	streamingPromptChars int // estimated input size at request time
 
 	// Operation context for better error messages
 	currentOperation   string
@@ -1032,7 +1033,9 @@ func (m *SimpleModel) renderFooter() string {
 			operation = "Processing"
 		}
 		if operation == "Receiving AI response" && m.streamingChars > 0 {
-			operation = fmt.Sprintf("Receiving AI response (~%d tokens)", m.streamingChars/4)
+			outTokens := m.streamingChars / 4
+			inTokens := m.streamingPromptChars / 4
+			operation = fmt.Sprintf("Receiving AI response (↑~%d in | ↓~%d out)", inTokens, outTokens)
 		}
 		elapsed := ""
 		if !m.operationStartedAt.IsZero() {
@@ -1123,7 +1126,8 @@ func (m *SimpleModel) renderFooter() string {
 			Italic(true)
 
 		if m.currentUsage != nil {
-			usageText := fmt.Sprintf("📊 Tokens: %d", m.currentUsage.TotalTokens)
+			usageText := fmt.Sprintf("📊 ↑%d in ↓%d out (total %d tokens)",
+				m.currentUsage.PromptTokens, m.currentUsage.CompletionTokens, m.currentUsage.TotalTokens)
 			if autoCompact && compactThreshold > 0 {
 				pct := m.currentUsage.TotalTokens * 100 / compactThreshold
 				if pct > 100 {
@@ -1135,7 +1139,7 @@ func (m *SimpleModel) renderFooter() string {
 				} else if pct >= 50 {
 					colorHex = "#FFA500"
 				}
-				usageText += fmt.Sprintf("/%d (%d%% of auto-compact limit)", compactThreshold, pct)
+				usageText += fmt.Sprintf(" (%d%% of auto-compact limit)", pct)
 				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(usageText))
 			} else {
 				b.WriteString(usageStyle.Render(usageText))

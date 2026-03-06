@@ -63,6 +63,13 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	m.operationStartedAt = time.Now()
 	m.lastUserInput = input
 
+	// Estimate input size from current messages for real-time token display.
+	var promptChars int
+	for _, msg := range m.messages {
+		promptChars += len(msg.Content)
+	}
+	m.streamingPromptChars = promptChars
+
 	// Add user message to display content
 	m.AddDisplayContent(userMsg, "")
 
