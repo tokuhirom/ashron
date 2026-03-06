@@ -100,13 +100,13 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 
 	return func() tea.Msg {
 		// Check if context needs compaction
-		if m.config.Context.AutoCompact {
+		if m.activeContext.AutoCompact {
 			usage := m.contextMgr.GetTokenUsage(m.messages)
-			threshold := int(float32(m.config.Context.MaxTokens) * m.config.Context.CompactionRatio)
+			threshold := int(float32(m.activeContext.MaxTokens) * m.activeContext.CompactionRatio)
 			slog.Debug("Checking context compaction",
 				slog.Int("usage", usage),
 				slog.Int("threshold", threshold),
-				slog.Int("maxTokens", m.config.Context.MaxTokens))
+				slog.Int("maxTokens", m.activeContext.MaxTokens))
 
 			if usage > threshold {
 				slog.Info("Compacting context",

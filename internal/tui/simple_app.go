@@ -38,6 +38,7 @@ type SimpleModel struct {
 	config              *config.Config
 	currentProviderName string
 	currentModelName    string
+	activeContext       config.ContextConfig
 
 	// API client
 	apiClient *api.Client
@@ -123,16 +124,20 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 	if err != nil {
 		return nil, err
 	}
+	activeCtx, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, err
+	}
 
 	// Create API client
-	apiClient := api.NewClient(provCfg, modelCfg, &cfg.Context)
+	apiClient := api.NewClient(provCfg, modelCfg, activeCtx)
 
 	// Create a context manager
-	ctxMgr := contextmgr.NewManager(&cfg.Context)
+	ctxMgr := contextmgr.NewManager(activeCtx)
 
 	// Create tool executor
 	toolExec := tools.NewExecutor(&cfg.Tools)
-	tools.ConfigureSubagentRuntime(apiClient, &cfg.Context)
+	tools.ConfigureSubagentRuntime(apiClient, activeCtx)
 
 	// Create UI components
 	ta := textarea.New()
@@ -178,6 +183,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 		config:                  cfg,
 		currentProviderName:     provName,
 		currentModelName:        modelName,
+		activeContext:           *activeCtx,
 		apiClient:               apiClient,
 		textarea:                ta,
 		spinner:                 sp,
@@ -281,8 +287,14 @@ func (m *SimpleModel) switchModel(modelName string) error {
 	m.config.Default.Model = modelName
 	m.currentProviderName = provName
 	m.currentModelName = modelName
-	m.apiClient = api.NewClient(provCfg, modelCfg, &m.config.Context)
-	tools.ConfigureSubagentRuntime(m.apiClient, &m.config.Context)
+	if modelCfg.Context != nil {
+		m.activeContext = *modelCfg.Context
+	} else {
+		m.activeContext = m.config.DefaultContext
+	}
+	m.apiClient = api.NewClient(provCfg, modelCfg, &m.activeContext)
+	m.contextMgr = contextmgr.NewManager(&m.activeContext)
+	tools.ConfigureSubagentRuntime(m.apiClient, &m.activeContext)
 	return nil
 }
 
@@ -1260,8 +1272,8 @@ func (m *SimpleModel) RenderConfig() tea.Cmd {
 		modelStr,
 		temperature,
 		timeout,
-		m.config.Context.MaxTokens,
-		m.config.Context.AutoCompact,
+		m.activeContext.MaxTokens,
+		m.activeContext.AutoCompact,
 		m.config.Tools.SandboxMode,
 		m.config.Tools.Yolo,
 	)

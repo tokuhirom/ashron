@@ -312,7 +312,7 @@ func newE2EModel(t *testing.T, baseURL string) *SimpleModel {
 			CommandTimeout:   time.Second,
 			SandboxMode:      "auto",
 		},
-		Context: config.ContextConfig{
+		DefaultContext: config.ContextConfig{
 			MaxMessages:     50,
 			MaxTokens:       4096,
 			CompactionRatio: 0.9,

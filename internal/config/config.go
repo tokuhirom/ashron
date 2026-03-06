@@ -10,10 +10,10 @@ import (
 )
 
 type Config struct {
-	Default   DefaultConfig
-	Providers map[string]ProviderConfig
-	Tools     ToolsConfig
-	Context   ContextConfig
+	Default        DefaultConfig
+	Providers      map[string]ProviderConfig
+	Tools          ToolsConfig
+	DefaultContext ContextConfig
 }
 
 type DefaultConfig struct {
@@ -32,6 +32,7 @@ type ProviderConfig struct {
 type ModelConfig struct {
 	Model       string
 	Temperature float32
+	Context     *ContextConfig
 }
 
 type ToolsConfig struct {
@@ -52,10 +53,10 @@ type ContextConfig struct {
 
 // rawConfig mirrors Config but uses string for Duration fields to support YAML parsing.
 type rawConfig struct {
-	Default   rawDefaultConfig             `yaml:"default"`
-	Providers map[string]rawProviderConfig `yaml:"providers"`
-	Tools     rawToolsConfig               `yaml:"tools"`
-	Context   rawContextConfig             `yaml:"context"`
+	Default        rawDefaultConfig             `yaml:"default"`
+	Providers      map[string]rawProviderConfig `yaml:"providers"`
+	Tools          rawToolsConfig               `yaml:"tools"`
+	DefaultContext rawContextConfig             `yaml:"default_context"`
 }
 
 type rawDefaultConfig struct {
@@ -72,8 +73,9 @@ type rawProviderConfig struct {
 }
 
 type rawModelConfig struct {
-	Model       string  `yaml:"model"`
-	Temperature float32 `yaml:"temperature"`
+	Model       string                    `yaml:"model"`
+	Temperature float32                   `yaml:"temperature"`
+	Context     *rawContextOverrideConfig `yaml:"context"`
 }
 
 type rawToolsConfig struct {
@@ -89,6 +91,13 @@ type rawContextConfig struct {
 	MaxTokens       int     `yaml:"max_tokens"`
 	CompactionRatio float32 `yaml:"compaction_ratio"`
 	AutoCompact     *bool   `yaml:"auto_compact"`
+}
+
+type rawContextOverrideConfig struct {
+	MaxMessages     *int     `yaml:"max_messages"`
+	MaxTokens       *int     `yaml:"max_tokens"`
+	CompactionRatio *float32 `yaml:"compaction_ratio"`
+	AutoCompact     *bool    `yaml:"auto_compact"`
 }
 
 func Load() (*Config, error) {
@@ -158,14 +167,14 @@ func applyDefaults(raw *rawConfig) {
 	if raw.Tools.SandboxMode == "" {
 		raw.Tools.SandboxMode = "auto"
 	}
-	if raw.Context.MaxMessages == 0 {
-		raw.Context.MaxMessages = 50
+	if raw.DefaultContext.MaxMessages == 0 {
+		raw.DefaultContext.MaxMessages = 50
 	}
-	if raw.Context.MaxTokens == 0 {
-		raw.Context.MaxTokens = 65535
+	if raw.DefaultContext.MaxTokens == 0 {
+		raw.DefaultContext.MaxTokens = 65535
 	}
-	if raw.Context.CompactionRatio == 0 {
-		raw.Context.CompactionRatio = 0.5
+	if raw.DefaultContext.CompactionRatio == 0 {
+		raw.DefaultContext.CompactionRatio = 0.5
 	}
 }
 
@@ -176,8 +185,14 @@ func convertConfig(raw rawConfig) (*Config, error) {
 	}
 
 	autoCompact := true
-	if raw.Context.AutoCompact != nil {
-		autoCompact = *raw.Context.AutoCompact
+	if raw.DefaultContext.AutoCompact != nil {
+		autoCompact = *raw.DefaultContext.AutoCompact
+	}
+	defaultContext := ContextConfig{
+		MaxMessages:     raw.DefaultContext.MaxMessages,
+		MaxTokens:       raw.DefaultContext.MaxTokens,
+		CompactionRatio: raw.DefaultContext.CompactionRatio,
+		AutoCompact:     autoCompact,
 	}
 
 	providers := make(map[string]ProviderConfig, len(raw.Providers))
@@ -188,7 +203,15 @@ func convertConfig(raw rawConfig) (*Config, error) {
 		}
 		models := make(map[string]ModelConfig, len(rp.Models))
 		for mname, rm := range rp.Models {
-			models[mname] = ModelConfig(rm)
+			modelCfg := ModelConfig{
+				Model:       rm.Model,
+				Temperature: rm.Temperature,
+			}
+			if rm.Context != nil {
+				ctx := mergeContext(defaultContext, rm.Context)
+				modelCfg.Context = &ctx
+			}
+			models[mname] = modelCfg
 		}
 		providers[name] = ProviderConfig{
 			Type:    rp.Type,
@@ -200,10 +223,7 @@ func convertConfig(raw rawConfig) (*Config, error) {
 	}
 
 	return &Config{
-		Default: DefaultConfig{
-			Provider: raw.Default.Provider,
-			Model:    raw.Default.Model,
-		},
+		Default:   DefaultConfig{Provider: raw.Default.Provider, Model: raw.Default.Model},
 		Providers: providers,
 		Tools: ToolsConfig{
 			AutoApproveTools:    raw.Tools.AutoApproveTools,
@@ -212,13 +232,25 @@ func convertConfig(raw rawConfig) (*Config, error) {
 			CommandTimeout:      cmdTimeout,
 			SandboxMode:         raw.Tools.SandboxMode,
 		},
-		Context: ContextConfig{
-			MaxMessages:     raw.Context.MaxMessages,
-			MaxTokens:       raw.Context.MaxTokens,
-			CompactionRatio: raw.Context.CompactionRatio,
-			AutoCompact:     autoCompact,
-		},
+		DefaultContext: defaultContext,
 	}, nil
+}
+
+func mergeContext(base ContextConfig, override *rawContextOverrideConfig) ContextConfig {
+	cfg := base
+	if override.MaxMessages != nil {
+		cfg.MaxMessages = *override.MaxMessages
+	}
+	if override.MaxTokens != nil {
+		cfg.MaxTokens = *override.MaxTokens
+	}
+	if override.CompactionRatio != nil {
+		cfg.CompactionRatio = *override.CompactionRatio
+	}
+	if override.AutoCompact != nil {
+		cfg.AutoCompact = *override.AutoCompact
+	}
+	return cfg
 }
 
 func parseDuration(s string, defaultVal time.Duration) (time.Duration, error) {
@@ -254,6 +286,18 @@ func (c *Config) ActiveModel() (string, *ModelConfig, error) {
 		return "", nil, fmt.Errorf("model %q not found in provider %q", name, c.Default.Provider)
 	}
 	return name, &m, nil
+}
+
+// ActiveContext returns context settings for the active model.
+func (c *Config) ActiveContext() (*ContextConfig, error) {
+	_, model, err := c.ActiveModel()
+	if err != nil {
+		return nil, err
+	}
+	if model.Context != nil {
+		return model.Context, nil
+	}
+	return &c.DefaultContext, nil
 }
 
 // FindModel searches all providers for a model by name.
@@ -344,8 +388,8 @@ tools:
   command_timeout: 10m
   sandbox_mode: auto
 
-# Context Management
-context:
+# Default Context Management
+default_context:
   max_messages: 50
   max_tokens: 65535
   compaction_ratio: 0.5
