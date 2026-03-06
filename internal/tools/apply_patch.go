@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/tokuhirom/ashron/internal/api"
@@ -28,6 +29,13 @@ type patchHunk struct {
 	OldSequence []string
 	NewSequence []string
 }
+
+type matchMode string
+
+const (
+	matchExact          matchMode = "exact"
+	matchTrimTrailingWS matchMode = "trim-trailing-whitespace"
+)
 
 var hunkHeaderRE = regexp.MustCompile(`^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@`)
 
@@ -75,6 +83,13 @@ func ApplyPatch(_ *config.ToolsConfig, toolCallID string, argsJSON string) api.T
 		}
 	}
 
+	change, err := AnalyzeWriteFileChange(path, newContent)
+	if err != nil {
+		result.Error = err
+		result.Output = fmt.Sprintf("Error analyzing patch changes: %v", err)
+		return result
+	}
+
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		result.Error = err
 		result.Output = fmt.Sprintf("Error creating directory: %v", err)
@@ -93,13 +108,6 @@ func ApplyPatch(_ *config.ToolsConfig, toolCallID string, argsJSON string) api.T
 	if err := atomicWrite(path, []byte(newContent)); err != nil {
 		result.Error = err
 		result.Output = fmt.Sprintf("Error applying patch: %v", err)
-		return result
-	}
-
-	change, err := AnalyzeWriteFileChange(path, newContent)
-	if err != nil {
-		result.Error = err
-		result.Output = fmt.Sprintf("Patch applied but change analysis failed: %v", err)
 		return result
 	}
 
@@ -153,6 +161,17 @@ func parsePatch(patch string) ([]patchHunk, error) {
 			current.NewSequence = append(current.NewSequence, line[1:])
 		}
 	}
+	// Validate each hunk's declared old/new lengths against actual body lines.
+	// This catches malformed patches early and avoids partial misapplication.
+	for i := range hunks {
+		oldCount, newCount := hunkLineCounts(hunks[i].Lines)
+		if oldCount != hunks[i].OldLen || newCount != hunks[i].NewLen {
+			return nil, fmt.Errorf(
+				"hunk header/body mismatch (%s): header old/new=%d/%d, body old/new=%d/%d",
+				hunks[i].Header, hunks[i].OldLen, hunks[i].NewLen, oldCount, newCount,
+			)
+		}
+	}
 	return hunks, nil
 }
 
@@ -173,62 +192,125 @@ func applyHunks(lines []string, hunks []patchHunk) ([]string, error) {
 	offset := 0
 	for i, h := range hunks {
 		preferred := h.OldStart - 1 + offset
-		pos := locateSequence(result, h.OldSequence, preferred)
-		if pos < 0 {
-			return nil, formatHunkApplyError(i+1, h, result, preferred)
+		// Match using the original-side sequence (context + removed lines).
+		// We fail on ambiguous matches to avoid silently patching the wrong block.
+		pos, mode, err := locateSequence(result, h.OldSequence, preferred)
+		if err != nil {
+			return nil, formatHunkApplyError(i+1, h, result, preferred, err)
 		}
 		before := append([]string(nil), result[:pos]...)
 		after := append([]string(nil), result[pos+len(h.OldSequence):]...)
 		result = append(before, append(h.NewSequence, after...)...)
 		offset += len(h.NewSequence) - len(h.OldSequence)
+		_ = mode
 	}
 	return result, nil
 }
 
-func locateSequence(lines []string, seq []string, preferred int) int {
+func locateSequence(lines []string, seq []string, preferred int) (int, matchMode, error) {
 	if len(seq) == 0 {
 		if preferred < 0 {
-			return 0
+			return 0, matchExact, nil
 		}
 		if preferred > len(lines) {
-			return len(lines)
+			return len(lines), matchExact, nil
 		}
-		return preferred
+		return preferred, matchExact, nil
 	}
 
-	if preferred >= 0 && preferred+len(seq) <= len(lines) && matchesAt(lines, seq, preferred) {
-		return preferred
+	if preferred >= 0 && preferred+len(seq) <= len(lines) && matchesAt(lines, seq, preferred, false) {
+		return preferred, matchExact, nil
 	}
 
-	for delta := 1; delta <= 8; delta++ {
-		up := preferred - delta
-		if up >= 0 && up+len(seq) <= len(lines) && matchesAt(lines, seq, up) {
-			return up
+	exactMatches := findMatches(lines, seq, false)
+	if len(exactMatches) > 0 {
+		pos, err := chooseNearestMatch(exactMatches, preferred)
+		if err != nil {
+			return 0, "", fmt.Errorf("ambiguous exact match at lines %v", toOneBased(exactMatches))
 		}
-		down := preferred + delta
-		if down >= 0 && down+len(seq) <= len(lines) && matchesAt(lines, seq, down) {
-			return down
-		}
+		return pos, matchExact, nil
 	}
 
-	for i := 0; i+len(seq) <= len(lines); i++ {
-		if matchesAt(lines, seq, i) {
-			return i
+	trimMatches := findMatches(lines, seq, true)
+	if len(trimMatches) > 0 {
+		// Fallback for minor formatter drift. We still reject ambiguity.
+		pos, err := chooseNearestMatch(trimMatches, preferred)
+		if err != nil {
+			return 0, "", fmt.Errorf("ambiguous whitespace-tolerant match at lines %v", toOneBased(trimMatches))
 		}
+		return pos, matchTrimTrailingWS, nil
 	}
-	return -1
+
+	return 0, "", errors.New("no matching location found")
 }
 
-func matchesAt(lines, seq []string, at int) bool {
+func findMatches(lines, seq []string, trimTrailingWS bool) []int {
+	if len(seq) == 0 {
+		return nil
+	}
+	matches := make([]int, 0, 4)
+	for i := 0; i+len(seq) <= len(lines); i++ {
+		if matchesAt(lines, seq, i, trimTrailingWS) {
+			matches = append(matches, i)
+		}
+	}
+	return matches
+}
+
+func matchesAt(lines, seq []string, at int, trimTrailingWS bool) bool {
 	for i := range seq {
-		if lines[at+i] != seq[i] {
+		lhs := lines[at+i]
+		rhs := seq[i]
+		if trimTrailingWS {
+			lhs = strings.TrimRight(lhs, " \t")
+			rhs = strings.TrimRight(rhs, " \t")
+		}
+		if lhs != rhs {
 			return false
 		}
 	}
 	return true
 }
 
-func formatHunkApplyError(index int, h patchHunk, lines []string, preferred int) error {
+func chooseNearestMatch(matches []int, preferred int) (int, error) {
+	if len(matches) == 0 {
+		return 0, errors.New("no matches")
+	}
+	type scored struct {
+		pos  int
+		dist int
+	}
+	scoredMatches := make([]scored, 0, len(matches))
+	for _, pos := range matches {
+		dist := pos - preferred
+		if dist < 0 {
+			dist = -dist
+		}
+		scoredMatches = append(scoredMatches, scored{pos: pos, dist: dist})
+	}
+	slices.SortFunc(scoredMatches, func(a, b scored) int {
+		if a.dist != b.dist {
+			return a.dist - b.dist
+		}
+		return a.pos - b.pos
+	})
+	// If two candidates are equally close, there is no deterministic "best" match.
+	// Rejecting here avoids corrupting unrelated duplicated blocks.
+	if len(scoredMatches) > 1 && scoredMatches[0].dist == scoredMatches[1].dist {
+		return 0, errors.New("ambiguous nearest match")
+	}
+	return scoredMatches[0].pos, nil
+}
+
+func toOneBased(pos []int) []int {
+	result := make([]int, 0, len(pos))
+	for _, p := range pos {
+		result = append(result, p+1)
+	}
+	return result
+}
+
+func formatHunkApplyError(index int, h patchHunk, lines []string, preferred int, cause error) error {
 	ctxStart := preferred - 2
 	if ctxStart < 0 {
 		ctxStart = 0
@@ -247,15 +329,34 @@ func formatHunkApplyError(index int, h patchHunk, lines []string, preferred int)
 	}
 
 	msg := fmt.Sprintf(
-		"Patch failed at hunk %d (%s).\nExpected to find:\n%s\n\nAround target line %d:\n%s\n\nRetry hint: read the latest file content around line %d and regenerate a minimal hunk with stable context lines.",
+		"Patch failed at hunk %d (%s): %v.\nExpected to find:\n%s\n\nAround target line %d:\n%s\n\nRetry hint: read the latest file content around line %d and regenerate a minimal hunk with stable context lines.",
 		index,
 		h.Header,
+		cause,
 		truncateMultiline(expected, 800),
 		h.OldStart,
 		truncateMultiline(around, 800),
 		h.OldStart,
 	)
 	return errors.New(msg)
+}
+
+func hunkLineCounts(lines []string) (oldCount int, newCount int) {
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		switch line[0] {
+		case ' ':
+			oldCount++
+			newCount++
+		case '-':
+			oldCount++
+		case '+':
+			newCount++
+		}
+	}
+	return oldCount, newCount
 }
 
 func patchStats(hunks []patchHunk) (added, removed int) {
