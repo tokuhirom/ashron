@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2026.306.0](https://github.com/tokuhirom/ashron/compare/v2026.305.3...v2026.306.0) - 2026-03-06
+- feat: apply_patch相当の安全編集ツールを追加 by @tokuhirom in https://github.com/tokuhirom/ashron/pull/86
+- feat(tui): add @ file path completion in input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/88
+- feat: render markdown in assistant responses by @tokuhirom in https://github.com/tokuhirom/ashron/pull/90
+- Rename context to default_context and support model context overrides by @tokuhirom in https://github.com/tokuhirom/ashron/pull/91
+- chore(deps): update dependency go to v1.26.1 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/89
+- fix: start new session by default instead of showing session picker by @tokuhirom in https://github.com/tokuhirom/ashron/pull/92
+- fix: make @ path completion case-insensitive by @tokuhirom in https://github.com/tokuhirom/ashron/pull/93
+
 ## [v2026.305.3](https://github.com/tokuhirom/ashron/compare/v2026.305.2...v2026.305.3) - 2026-03-05
 - fix: send content:null for assistant tool-call messages (GLM/OpenAI compat) by @tokuhirom in https://github.com/tokuhirom/ashron/pull/61
 - feat: highlight PLAN mode label in gold by @tokuhirom in https://github.com/tokuhirom/ashron/pull/63
