@@ -941,6 +941,16 @@ func (m *SimpleModel) filteredModelNames(prefix string) []string {
 	return names
 }
 
+// modelProvider returns the provider name for the given model alias.
+func (m *SimpleModel) modelProvider(modelName string) string {
+	for _, entry := range m.config.AllModelNames() {
+		if entry.Model == modelName {
+			return entry.Provider
+		}
+	}
+	return ""
+}
+
 // updateInputMode switches the textarea prompt and border to reflect whether the
 // user is typing a shell command (! prefix) or a normal message.
 func (m *SimpleModel) updateInputMode() {
@@ -977,10 +987,15 @@ func (m *SimpleModel) renderCompletion() string {
 	isCommandMode := strings.HasPrefix(m.textarea.Value(), "/")
 	isArgMode := isCommandMode && strings.Contains(m.textarea.Value(), " ")
 
+	isModelArgMode := isArgMode && strings.HasPrefix(m.textarea.Value(), "/model ")
+
 	var sb strings.Builder
 	for i, item := range items {
 		var line string
-		if !isCommandMode || isArgMode {
+		if isModelArgMode {
+			provider := m.modelProvider(item)
+			line = fmt.Sprintf("%-20s %s", item, provider)
+		} else if !isCommandMode || isArgMode {
 			line = item
 		} else {
 			cmd, _ := m.commandRegistry.GetCommand(item)

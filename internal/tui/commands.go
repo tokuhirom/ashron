@@ -132,19 +132,9 @@ func NewCommandRegistry() *CommandRegistry {
 				Description: "Show or switch model. Usage: /model [name]",
 				Body: func(cr *CommandRegistry, m *SimpleModel, args []string) tea.Cmd {
 					if len(args) == 0 {
-						var sb strings.Builder
-						fmt.Fprintf(&sb, "Current model: %s (provider: %s)\n\nAvailable models:\n", m.currentModelName, m.currentProviderName)
-						for _, entry := range m.config.AllModelNames() {
-							marker := "  "
-							if entry.Model == m.currentModelName {
-								marker = "* "
-							}
-							fmt.Fprintf(&sb, "%s%s (provider: %s)\n", marker, entry.Model, entry.Provider)
-						}
-						msg := lipgloss.NewStyle().
-							Foreground(lipgloss.Color("#626262")).
-							Render(sb.String())
-						m.AddDisplayContent(msg, "")
+						m.textarea.SetValue("/model ")
+						m.textarea.CursorEnd()
+						m.updateCompletionState()
 						return nil
 					}
 
