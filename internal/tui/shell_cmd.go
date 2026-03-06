@@ -39,7 +39,9 @@ func (m *SimpleModel) runShellCommand(command string) tea.Cmd {
 	}
 }
 
-// handleShellCmdMsg renders the result of a shell command to the display.
+// handleShellCmdMsg renders the result of a shell command to the display and
+// appends it to the conversation history as a user message so the AI can
+// reference the command and its output in subsequent responses.
 func (m *SimpleModel) handleShellCmdMsg(msg shellCmdMsg) {
 	if msg.output != "" {
 		lines := strings.Split(strings.TrimRight(msg.output, "\n"), "\n")
@@ -54,4 +56,18 @@ func (m *SimpleModel) handleShellCmdMsg(msg shellCmdMsg) {
 		m.AddDisplayContent(errLine)
 	}
 	m.AddDisplayContent("")
+
+	// Build a user message that includes the command and its output so the AI
+	// can see what was run and what it produced.
+	var sb strings.Builder
+	sb.WriteString("$ ")
+	sb.WriteString(msg.command)
+	sb.WriteString("\n")
+	if msg.output != "" {
+		sb.WriteString(msg.output)
+	}
+	if msg.err != nil {
+		fmt.Fprintf(&sb, "exit error: %v\n", msg.err)
+	}
+	m.addUserMessage(sb.String())
 }
