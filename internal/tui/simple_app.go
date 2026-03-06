@@ -1434,10 +1434,6 @@ func isShiftTab(msg tea.KeyPressMsg) bool {
 }
 
 func (m *SimpleModel) toggleCollaborationMode() {
-	if m.loading {
-		return
-	}
-
 	switch m.collaborationMode {
 	case "default":
 		m.collaborationMode = "auto_edit"
