@@ -107,6 +107,9 @@ type SimpleModel struct {
 	// Live subagent summaries for display, updated by a periodic tick
 	subagentSummary []tools.SubagentSummary
 
+	// Live output lines of the currently running execute_command call
+	cmdOutputLines []string
+
 	// scrolledToBottom is set to true once we have scrolled to the bottom after resume.
 	scrolledToBottom bool
 
@@ -674,8 +677,10 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case loadingTickMsg:
 		if m.loading {
+			_, m.cmdOutputLines = tools.GetCommandProgress()
 			return m, loadingTick()
 		}
+		m.cmdOutputLines = nil
 		return m, nil
 
 	case subagentTickMsg:
@@ -941,6 +946,13 @@ func (m *SimpleModel) renderFooter() string {
 				lastLine = lastLine[:maxLen-1] + "…"
 			}
 			b.WriteString(label + lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render(lastLine) + "\n")
+		}
+		for _, line := range m.cmdOutputLines {
+			maxLen := m.width - 4
+			if maxLen > 0 && len(line) > maxLen {
+				line = line[:maxLen-1] + "…"
+			}
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("  │ "+line) + "\n")
 		}
 	} else if m.waitingForApproval {
 		b.WriteString(m.renderApprovalPanel())

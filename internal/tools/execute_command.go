@@ -1,19 +1,67 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
 )
+
+const maxCommandOutputLines = 5
+
+// cmdProgress tracks the live output of the currently running execute_command call.
+var cmdProgress struct {
+	mu      sync.Mutex
+	command string
+	lines   []string // last maxCommandOutputLines non-empty lines
+}
+
+// GetCommandProgress returns the command name and the last few output lines of
+// the currently executing shell command. Returns empty values when idle.
+func GetCommandProgress() (command string, lines []string) {
+	cmdProgress.mu.Lock()
+	defer cmdProgress.mu.Unlock()
+	out := make([]string, len(cmdProgress.lines))
+	copy(out, cmdProgress.lines)
+	return cmdProgress.command, out
+}
+
+func setCmdProgress(command string) {
+	cmdProgress.mu.Lock()
+	defer cmdProgress.mu.Unlock()
+	cmdProgress.command = command
+	cmdProgress.lines = nil
+}
+
+func clearCmdProgress() {
+	cmdProgress.mu.Lock()
+	defer cmdProgress.mu.Unlock()
+	cmdProgress.command = ""
+	cmdProgress.lines = nil
+}
+
+func appendCmdLine(line string) {
+	if strings.TrimSpace(line) == "" {
+		return
+	}
+	cmdProgress.mu.Lock()
+	defer cmdProgress.mu.Unlock()
+	cmdProgress.lines = append(cmdProgress.lines, line)
+	if len(cmdProgress.lines) > maxCommandOutputLines {
+		cmdProgress.lines = cmdProgress.lines[len(cmdProgress.lines)-maxCommandOutputLines:]
+	}
+}
 
 type ExecuteCommandArgs struct {
 	Command     string `json:"command"`
@@ -55,7 +103,57 @@ func ExecuteCommand(config *config.ToolsConfig, toolCallID string, argsJson stri
 		slog.String("workingDir", cmd.Dir),
 		slog.String("sandboxBackend", backend))
 
-	out, err := cmd.CombinedOutput()
+	setCmdProgress(command)
+	defer clearCmdProgress()
+
+	var fullBuf bytes.Buffer
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+
+	if err := cmd.Start(); err != nil {
+		result.Error = fmt.Errorf("failed to start command: %w", err)
+		result.Output = fmt.Sprintf("Error: %v", err)
+		return result
+	}
+
+	// Read output lines, feeding both the live display and the full buffer.
+	var readErr error
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		buf := make([]byte, 4096)
+		lineAccum := ""
+		for {
+			n, rerr := pr.Read(buf)
+			if n > 0 {
+				chunk := string(buf[:n])
+				fullBuf.WriteString(chunk)
+				combined := lineAccum + chunk
+				parts := strings.Split(combined, "\n")
+				for _, part := range parts[:len(parts)-1] {
+					appendCmdLine(part)
+				}
+				lineAccum = parts[len(parts)-1]
+			}
+			if rerr != nil {
+				if rerr != io.EOF {
+					readErr = rerr
+				}
+				break
+			}
+		}
+		if lineAccum != "" {
+			appendCmdLine(lineAccum)
+		}
+	}()
+
+	waitErr := cmd.Wait()
+	_ = pw.Close()
+	<-done
+	_ = readErr
+
+	out := fullBuf.Bytes()
 	if len(out) > config.MaxOutputSize {
 		out = out[:config.MaxOutputSize]
 		out = append(out, []byte(fmt.Sprintf("\n\n[Output truncated at %d bytes]", config.MaxOutputSize))...)
@@ -73,14 +171,14 @@ func ExecuteCommand(config *config.ToolsConfig, toolCallID string, argsJson stri
 		return result
 	}
 
-	if err != nil {
-		result.Error = err
+	if waitErr != nil {
+		result.Error = waitErr
 		if result.Output == "" {
-			result.Output = fmt.Sprintf("Command failed: %v", err)
+			result.Output = fmt.Sprintf("Command failed: %v", waitErr)
 		}
 		slog.Error("Command execution failed",
 			slog.String("command", command),
-			slog.String("error", err.Error()),
+			slog.String("error", waitErr.Error()),
 			slog.String("output", result.Output))
 		return result
 	}
