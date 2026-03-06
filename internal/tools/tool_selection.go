@@ -9,6 +9,7 @@ import (
 var readOnlyToolNames = map[string]struct{}{
 	"fetch_url":        {},
 	"get_diagnostics":  {},
+	"get_tool_result":  {},
 	"list_directory":   {},
 	"list_subagents":   {},
 	"list_tools":       {},
