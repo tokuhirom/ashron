@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.306.7](https://github.com/tokuhirom/ashron/compare/v2026.306.6...v2026.306.7) - 2026-03-06
+- feat: add shell command output to conversation history by @tokuhirom in https://github.com/tokuhirom/ashron/pull/114
+- feat: show auto-compact progress in footer by @tokuhirom in https://github.com/tokuhirom/ashron/pull/116
+- fix: show tool arguments and error reason on tool execution failure by @tokuhirom in https://github.com/tokuhirom/ashron/pull/117
+
 ## [v2026.306.6](https://github.com/tokuhirom/ashron/compare/v2026.306.5...v2026.306.6) - 2026-03-06
 - Add MCP client integration via mcp_call tool by @tokuhirom in https://github.com/tokuhirom/ashron/pull/110
 - Add debug auto-log path via CLI flag and config by @tokuhirom in https://github.com/tokuhirom/ashron/pull/112
