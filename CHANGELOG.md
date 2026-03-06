@@ -1,5 +1,8 @@
 # Changelog
 
+## [v2026.306.5](https://github.com/tokuhirom/ashron/compare/v2026.306.4...v2026.306.5) - 2026-03-06
+- Harden apply_patch matching and diagnostics by @tokuhirom in https://github.com/tokuhirom/ashron/pull/108
+
 ## [v2026.306.4](https://github.com/tokuhirom/ashron/compare/v2026.306.3...v2026.306.4) - 2026-03-06
 - feat: add ACP (Agent Client Protocol) server mode by @tokuhirom in https://github.com/tokuhirom/ashron/pull/104
 - feat: add get_diagnostics tool via Language Server Protocol by @tokuhirom in https://github.com/tokuhirom/ashron/pull/106
