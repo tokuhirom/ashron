@@ -16,6 +16,7 @@ type Config struct {
 	Tools          ToolsConfig
 	DefaultContext ContextConfig
 	MCPServers     map[string]MCPServerConfig
+	Debug          bool
 }
 
 type DefaultConfig struct {
@@ -70,6 +71,7 @@ type rawConfig struct {
 	Tools          rawToolsConfig                `yaml:"tools"`
 	DefaultContext rawContextConfig              `yaml:"default_context"`
 	MCPServers     map[string]rawMCPServerConfig `yaml:"mcp_servers"`
+	Debug          bool                          `yaml:"debug"`
 }
 
 type rawDefaultConfig struct {
@@ -261,6 +263,7 @@ func convertConfig(raw rawConfig) (*Config, error) {
 		},
 		DefaultContext: defaultContext,
 		MCPServers:     mcpServers,
+		Debug:          raw.Debug,
 	}, nil
 }
 
@@ -452,6 +455,9 @@ default_context:
   max_tokens: 65535
   compaction_ratio: 0.5
   auto_compact: true
+
+# Enable debug logging (writes logs under $XDG_DATA_HOME/ashron/logs)
+debug: false
 `
 
 	if err := os.WriteFile(cfgPath, []byte(defaultConfig), 0644); err != nil {

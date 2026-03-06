@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/alecthomas/kong"
@@ -28,6 +29,7 @@ var cli struct {
 	Model   string `help:"Model to use (overrides config)"`
 	BaseURL string `help:"API base URL (overrides config)" name:"base-url"`
 	Log     string `help:"Path to log file for debugging"`
+	Debug   bool   `help:"Enable debug logging to $XDG_DATA_HOME/ashron/logs"`
 	Yolo    bool   `help:"Disable sandbox and require no tool approvals (dangerous)"`
 	Resume  string `help:"Resume a previous session by ID" name:"resume"`
 	Pick    bool   `help:"Show interactive session picker to resume a previous session" name:"pick"`
@@ -85,7 +87,11 @@ func main() {
 	}
 
 	// Setup logging
-	if err := logger.Setup(cli.Log); err != nil {
+	logPath := cli.Log
+	if logPath == "" && (cli.Debug || cfg.Debug) {
+		logPath = logger.DefaultLogFilePath(time.Now())
+	}
+	if err := logger.Setup(logPath); err != nil {
 		log.Fatalf("Failed to setup logging: %v\n", err)
 	}
 	defer logger.Close()
