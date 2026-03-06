@@ -61,7 +61,7 @@ func NewServer(cfg *config.Config, apiClient *api.Client, version string) *Serve
 	return &Server{
 		cfg:       cfg,
 		apiClient: apiClient,
-		toolExec:  tools.NewExecutor(&toolsCfg),
+		toolExec:  tools.NewExecutor(&toolsCfg, tools.NewResultStore()),
 		version:   version,
 		sessions:  make(map[string]*session),
 		encoder:   json.NewEncoder(os.Stdout),

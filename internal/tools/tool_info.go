@@ -17,6 +17,21 @@ type ToolInfo struct {
 func GetAllTools() []ToolInfo {
 	return []ToolInfo{
 		{
+			Name:        "get_tool_result",
+			Description: "Retrieve the full output of a previous tool call by its ID. Tool results from earlier turns are stored by ID to save tokens; use this when you need the complete content.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"id": {
+						Type:        "string",
+						Description: "The tool call ID whose result to retrieve",
+					},
+				},
+				Required: []string{"id"},
+			},
+			callback: nil, // handled directly in Executor.Execute
+		},
+		{
 			Name:        "mcp_call",
 			Description: "Call a tool on a configured external MCP server",
 			Parameters: api.FunctionParameters{

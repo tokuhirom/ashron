@@ -123,10 +123,11 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 
 		// Stream the response
 		builtinTools := tools.SelectBuiltinTools(m.lastUserInput)
+		msgsToSend := stubOldToolResults(m.messages)
 		slog.Debug("Requesting streaming completion",
-			slog.Int("messages", len(m.messages)),
+			slog.Int("messages", len(msgsToSend)),
 			slog.Int("tools", len(builtinTools)))
-		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, m.messages, builtinTools)
+		stream, err := m.apiClient.StreamChatCompletionWithTools(ctx, msgsToSend, builtinTools)
 		if err != nil {
 			if ctx.Err() != nil {
 				// Cancelled by user - not an error worth reporting
@@ -371,6 +372,10 @@ func (m *SimpleModel) executeNextTool() tea.Cmd {
 			output.WriteString("\n")
 		}
 
+		// Store the full output in the result store so get_tool_result can retrieve it.
+		if m.toolResultStore != nil {
+			m.toolResultStore.Store(tc.ID, result.Output)
+		}
 		// Keep tool outputs compact in message history to reduce prompt tokens.
 		historyOutput := tools.CompactToolResultForHistory(tc.Function.Name, result.Output)
 		m.messages = append(m.messages, api.NewToolMessage(tc.ID, historyOutput))
@@ -382,6 +387,32 @@ func (m *SimpleModel) executeNextTool() tea.Cmd {
 			output:    output.String(),
 		}
 	}
+}
+
+// stubOldToolResults replaces tool message content with a lightweight reference
+// for any tool message that already has an assistant response after it.
+// The AI can retrieve the full content on demand via the get_tool_result tool.
+func stubOldToolResults(messages []api.Message) []api.Message {
+	// Find the index of the last assistant message.
+	lastAssistantIdx := -1
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "assistant" {
+			lastAssistantIdx = i
+			break
+		}
+	}
+	if lastAssistantIdx < 0 {
+		return messages
+	}
+
+	result := make([]api.Message, len(messages))
+	copy(result, messages)
+	for i, msg := range result {
+		if msg.Role == "tool" && i < lastAssistantIdx {
+			result[i].Content = fmt.Sprintf("[stored: use get_tool_result with id=%q to retrieve full output]", msg.ToolCallID)
+		}
+	}
+	return result
 }
 
 func toolCallSummaryLines(tc api.ToolCall) []string {

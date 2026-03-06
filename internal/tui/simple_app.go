@@ -96,7 +96,8 @@ type SimpleModel struct {
 	displayContent []string
 
 	// Token usage tracking
-	currentUsage *api.Usage
+	currentUsage    *api.Usage
+	toolResultStore *tools.ResultStore
 
 	availableSkills         []skills.Skill
 	availableCustomCommands []customcmd.Command
@@ -168,7 +169,8 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 	ctxMgr := contextmgr.NewManager(activeCtx)
 
 	// Create tool executor
-	toolExec := tools.NewExecutor(&cfg.Tools)
+	resultStore := tools.NewResultStore()
+	toolExec := tools.NewExecutor(&cfg.Tools, resultStore)
 	tools.ConfigureSubagentRuntime(apiClient, activeCtx)
 
 	// Create UI components
@@ -226,6 +228,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 		messages:                messages,
 		contextMgr:              ctxMgr,
 		toolExec:                toolExec,
+		toolResultStore:         resultStore,
 		statusMsg:               "Ready",
 		ready:                   true,
 		commandRegistry:         commandRegistry,
