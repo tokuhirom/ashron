@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2026.306.9](https://github.com/tokuhirom/ashron/compare/v2026.306.8...v2026.306.9) - 2026-03-06
+- fix: use actual API token count for auto-compact progress display by @tokuhirom in https://github.com/tokuhirom/ashron/pull/121
+- feat: replace rule-based compaction with LLM summarization by @tokuhirom in https://github.com/tokuhirom/ashron/pull/123
+- Gate file tools to workspace with session-scoped external grants by @tokuhirom in https://github.com/tokuhirom/ashron/pull/124
+- feat: include sandbox environment description in system prompt by @tokuhirom in https://github.com/tokuhirom/ashron/pull/125
+
 ## [v2026.306.8](https://github.com/tokuhirom/ashron/compare/v2026.306.7...v2026.306.8) - 2026-03-06
 - feat: show live command output in footer during execute_command by @tokuhirom in https://github.com/tokuhirom/ashron/pull/118
 - feat: add accept-edits collaboration mode (Shift+Tab cycle) by @tokuhirom in https://github.com/tokuhirom/ashron/pull/120
