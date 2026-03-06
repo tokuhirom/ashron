@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/alecthomas/kong"
 
+	"github.com/tokuhirom/ashron/internal/acp"
+	"github.com/tokuhirom/ashron/internal/api"
 	"github.com/tokuhirom/ashron/internal/config"
 	"github.com/tokuhirom/ashron/internal/logger"
 	"github.com/tokuhirom/ashron/internal/session"
@@ -29,6 +31,8 @@ var cli struct {
 	Yolo    bool   `help:"Disable sandbox and require no tool approvals (dangerous)"`
 	Resume  string `help:"Resume a previous session by ID" name:"resume"`
 	Pick    bool   `help:"Show interactive session picker to resume a previous session" name:"pick"`
+
+	Acp bool `help:"Run as an ACP (Agent Client Protocol) server over stdin/stdout" name:"acp"`
 
 	Version kong.VersionFlag `help:"Show version and exit"`
 }
@@ -88,6 +92,28 @@ func main() {
 
 	slog.Info("Starting Ashron", "version", version, "commit", commit)
 	tui.SetBuildInfo(version, commit, date)
+
+	// ACP server mode: communicate with an editor via JSON-RPC 2.0 over stdin/stdout.
+	if cli.Acp {
+		_, providerCfg, err := cfg.ActiveProvider()
+		if err != nil {
+			log.Fatalf("ACP: failed to get provider: %v", err)
+		}
+		_, modelCfg, err := cfg.ActiveModel()
+		if err != nil {
+			log.Fatalf("ACP: failed to get model: %v", err)
+		}
+		activeCtx, err := cfg.ActiveContext()
+		if err != nil {
+			log.Fatalf("ACP: failed to get context config: %v", err)
+		}
+		apiClient := api.NewClient(providerCfg, modelCfg, activeCtx)
+		acpServer := acp.NewServer(cfg, apiClient, version)
+		if err := acpServer.Run(); err != nil {
+			log.Fatalf("ACP server error: %v", err)
+		}
+		return
+	}
 
 	// Load session for resume if requested
 	var sess *session.Session
