@@ -1010,14 +1010,9 @@ func (m *SimpleModel) renderApprovalPanel() string {
 
 		sb.WriteString("\n")
 		sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#A0A0A0")).Render("     why: " + why))
-		if tc.Function.Name == "apply_patch" {
-			// Always show the diff for apply_patch so the user can see exactly
-			// what will change before approving.
-			var patchArgs tools.ApplyPatchArgs
-			if err := json.Unmarshal([]byte(tc.Function.Arguments), &patchArgs); err == nil && patchArgs.Patch != "" {
-				sb.WriteString("\n")
-				sb.WriteString(formatPatchForApproval(patchArgs.Patch))
-			}
+		if detail := approvalInlineDetail(tc); detail != "" {
+			sb.WriteString("\n")
+			sb.WriteString(detail)
 		} else if m.showApprovalDetail {
 			sb.WriteString("\n")
 			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render("     args: " + truncateForApproval(tc.Function.Arguments)))
@@ -1175,6 +1170,72 @@ func commandDanger(command string) (bool, string) {
 		}
 	}
 	return false, ""
+}
+
+// approvalInlineDetail returns always-visible detail text for tools where
+// showing the full content by default is important for informed approval.
+// Returns "" for tools that have no special inline detail.
+func approvalInlineDetail(tc api.ToolCall) string {
+	switch tc.Function.Name {
+	case "execute_command":
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			return ""
+		}
+		cmd := strings.TrimSpace(args.Command)
+		if cmd == "" {
+			return ""
+		}
+		// Show each line of the command with a shell-prompt prefix.
+		cmdLines := strings.Split(cmd, "\n")
+		var sb strings.Builder
+		for i, line := range cmdLines {
+			prefix := "     $ "
+			if i > 0 {
+				prefix = "       "
+			}
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#F8F8F2")).Render(prefix + line))
+			if i < len(cmdLines)-1 {
+				sb.WriteString("\n")
+			}
+		}
+		return sb.String()
+
+	case "write_file":
+		var args struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args.Content == "" {
+			return ""
+		}
+		// Show up to 10 lines of the file content as a preview.
+		const maxPreviewLines = 10
+		contentLines := strings.Split(args.Content, "\n")
+		preview := contentLines
+		if len(preview) > maxPreviewLines {
+			preview = preview[:maxPreviewLines]
+		}
+		var sb strings.Builder
+		for _, line := range preview {
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Render("     " + line))
+			sb.WriteString("\n")
+		}
+		if len(contentLines) > maxPreviewLines {
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true).
+				Render(fmt.Sprintf("     ... (%d more lines)", len(contentLines)-maxPreviewLines)))
+			return sb.String()
+		}
+		return strings.TrimRight(sb.String(), "\n")
+
+	case "apply_patch":
+		var patchArgs tools.ApplyPatchArgs
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &patchArgs); err != nil || patchArgs.Patch == "" {
+			return ""
+		}
+		return formatPatchForApproval(patchArgs.Patch)
+	}
+	return ""
 }
 
 // formatPatchForApproval renders a unified-diff patch string with coloured
