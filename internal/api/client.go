@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -93,6 +94,12 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 		slog.Error("Failed to marshal streaming request", "error", err)
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
+	// Communication log (debug): outgoing request payload.
+	// Keep this bounded to avoid exploding log size on large conversations.
+	slog.Debug("API request payload",
+		slog.String("path", "/chat/completions"),
+		slog.Int("bytes", len(body)),
+		slog.String("json", truncateForLog(string(body), 4000)))
 
 	httpReq, err := c.newRequest(ctx, "POST", "/chat/completions", bytes.NewReader(body))
 	if err != nil {
@@ -106,6 +113,16 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 			slog.Any("error", err))
 		return nil, fmt.Errorf("send request: %w", err)
 	}
+	slog.Debug("API response received",
+		slog.Int("status", resp.StatusCode),
+		slog.String("statusText", resp.Status),
+		slog.String("contentType", resp.Header.Get("Content-Type")),
+		slog.String("requestID", firstNonEmpty(
+			resp.Header.Get("x-request-id"),
+			resp.Header.Get("x-amzn-requestid"),
+			resp.Header.Get("cf-ray"),
+		)),
+		slog.String("retryAfter", resp.Header.Get("Retry-After")))
 
 	if resp.StatusCode != http.StatusOK {
 		defer func() {
@@ -146,6 +163,7 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 			}
 
 			if strings.HasPrefix(line, "data: ") {
+				slog.Debug("API stream line", slog.String("line", truncateForLog(line, 2000)))
 				data := strings.TrimPrefix(line, "data: ")
 				if data == "[DONE]" {
 					slog.Debug("Stream completed")
@@ -186,6 +204,7 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 // handleError processes API error responses
 func (c *Client) handleError(resp *http.Response) error {
 	body, _ := io.ReadAll(resp.Body)
+	slog.Debug("API error response body", slog.String("body", truncateForLog(string(body), 4000)))
 
 	var errResp ErrorResponse
 	if err := json.Unmarshal(body, &errResp); err != nil {
@@ -194,4 +213,20 @@ func (c *Client) handleError(resp *http.Response) error {
 
 	return fmt.Errorf("API error: %s (type: %s, code: %s)",
 		errResp.Error.Message, errResp.Error.Type, errResp.Error.Code)
+}
+
+func truncateForLog(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	return s[:max] + "...(truncated " + strconv.Itoa(len(s)-max) + " bytes)"
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }

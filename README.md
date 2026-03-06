@@ -115,6 +115,9 @@ default_context:
   max_tokens: 65535
   compaction_ratio: 0.5
   auto_compact: true
+
+# Enable debug logs to $XDG_DATA_HOME/ashron/logs/
+debug: false
 ```
 
 ## Commands
@@ -354,6 +357,7 @@ Options:
   --model string     Model to use (overrides config)
   --base-url string  API base URL (overrides config)
   --log string       Path to log file for debugging
+  --debug            Enable debug logging to $XDG_DATA_HOME/ashron/logs
   --yolo             Disable sandbox and require no tool approvals (dangerous)
   --resume string    Resume a previous session by ID
   --pick             Show interactive session picker to resume a previous session
@@ -366,6 +370,8 @@ Options:
 
 - `OPENAI_API_KEY` - OpenAI API key (also configurable via `--api-key`)
 - `XDG_CONFIG_HOME` - Override the base config directory (Linux)
+
+When debug logging is enabled (`--debug` or `debug: true`), Ashron writes both execution logs and API communication logs (request/response metadata and streaming lines) to `$XDG_DATA_HOME/ashron/logs/` (or `~/.local/share/ashron/logs/`).
 
 ## Development
 
