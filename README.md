@@ -89,6 +89,8 @@ providers:
       gpt-4.1:
         model: gpt-4.1
         temperature: 0.7
+        context:
+          max_tokens: 32768
 
 # Tools Configuration
 tools:
@@ -105,8 +107,8 @@ tools:
   command_timeout: 10m
   sandbox_mode: auto # auto|off
 
-# Context Management
-context:
+# Default Context Management
+default_context:
   max_messages: 50
   max_tokens: 65535
   compaction_ratio: 0.5
