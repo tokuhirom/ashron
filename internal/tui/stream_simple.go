@@ -420,6 +420,13 @@ func toolCallSummaryLines(tc api.ToolCall) []string {
 			"    new file",
 		)
 	}
+	if tc.Function.Name == "execute_command" {
+		var args tools.ExecuteCommandArgs
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && strings.TrimSpace(args.Command) != "" {
+			return append(lines, "  └ $ "+strings.TrimSpace(args.Command))
+		}
+		return append(lines, "  └ execute_command")
+	}
 	if tc.Function.Name == "apply_patch" {
 		var args struct {
 			Path  string `json:"path"`
