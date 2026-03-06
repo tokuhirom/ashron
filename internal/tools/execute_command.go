@@ -149,7 +149,7 @@ func ExecuteCommand(config *config.ToolsConfig, toolCallID string, argsJson stri
 	}()
 
 	waitErr := cmd.Wait()
-	pw.Close()
+	_ = pw.Close()
 	<-done
 	_ = readErr
 
