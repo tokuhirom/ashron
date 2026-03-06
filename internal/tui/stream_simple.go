@@ -66,8 +66,9 @@ func (m *SimpleModel) SendMessage(input string) tea.Cmd {
 	// Add user message to display content
 	m.AddDisplayContent(userMsg, "")
 
-	// Return a command that processes the message
-	return m.processMessage()
+	// Return a command that processes the message, with a heartbeat tick to
+	// keep the display refreshed during the long-running streaming phase.
+	return tea.Batch(m.processMessage(), loadingTick())
 }
 
 // cancelCurrentRequest cancels the in-flight API request and resets loading state.

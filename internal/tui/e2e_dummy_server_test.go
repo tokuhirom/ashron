@@ -328,16 +328,27 @@ func newE2EModel(t *testing.T, baseURL string) *SimpleModel {
 }
 
 func runCommandLoop(m *SimpleModel, cmd tea.Cmd, maxSteps int) error {
-	for step := 0; step < maxSteps && cmd != nil; step++ {
+	queue := []tea.Cmd{cmd}
+	for step := 0; step < maxSteps && len(queue) > 0; step++ {
+		// Pop the first command.
+		cmd, queue = queue[0], queue[1:]
+		if cmd == nil {
+			continue
+		}
 		msg := cmd()
 		if msg == nil {
-			return nil
+			continue
+		}
+		// Expand BatchMsg into the queue so all commands are processed.
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			queue = append(queue, []tea.Cmd(batch)...)
+			step-- // don't count expansion as a step
+			continue
 		}
 		_, next := m.Update(msg)
-		cmd = next
-	}
-	if cmd != nil {
-		return fmt.Errorf("command loop exceeded %d steps", maxSteps)
+		if next != nil {
+			queue = append(queue, next)
+		}
 	}
 	return nil
 }

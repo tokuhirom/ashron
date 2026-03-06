@@ -308,6 +308,15 @@ func subagentTick() tea.Cmd {
 	})
 }
 
+// loadingTickMsg is sent periodically while loading to keep the display refreshed.
+type loadingTickMsg struct{}
+
+func loadingTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return loadingTickMsg{}
+	})
+}
+
 // Init initializes the model
 func (m *SimpleModel) Init() tea.Cmd {
 	m.ReadAgentsMD()
@@ -663,6 +672,12 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, spinCmd = m.spinner.Update(msg)
 		return m, spinCmd
 
+	case loadingTickMsg:
+		if m.loading {
+			return m, loadingTick()
+		}
+		return m, nil
+
 	case subagentTickMsg:
 		m.subagentSummary = tools.GetSubagentsSummary()
 		return m, subagentTick()
@@ -698,9 +713,6 @@ func (m *SimpleModel) View() tea.View {
 	m.viewport.SetHeight(m.height - lipgloss.Height(footer) - lipgloss.Height(completion) - 3)
 	m.updateViewportContent()
 	viewportContent := m.viewport.View() + "\n\n"
-
-	slog.Info("Viewport content",
-		slog.Int("YOffset", m.viewport.YOffset()))
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Top,
@@ -913,7 +925,7 @@ func (m *SimpleModel) renderFooter() string {
 		}
 		elapsed := ""
 		if !m.operationStartedAt.IsZero() {
-			elapsed = fmt.Sprintf(" [%s]", time.Since(m.operationStartedAt).Round(time.Second))
+			elapsed = fmt.Sprintf(" [%s]", time.Since(m.operationStartedAt).Round(100*time.Millisecond))
 		}
 		b.WriteString(m.spinner.View() + " " + operation + elapsed + " (Esc: cancel request, Ctrl+C: cancel all)\n")
 		for _, ag := range m.subagentSummary {
@@ -1839,7 +1851,7 @@ func (m *SimpleModel) continueConversation() tea.Cmd {
 	if m.operationStartedAt.IsZero() {
 		m.operationStartedAt = time.Now()
 	}
-	return m.processMessage()
+	return tea.Batch(m.processMessage(), loadingTick())
 }
 
 // InitProject generates AGENTS.md for the project
