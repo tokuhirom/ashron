@@ -2031,6 +2031,14 @@ func (m *SimpleModel) isAutoApproved(toolName string, arguments string) bool {
 		return false
 	}
 
+	if req, needed, err := requiredFSAccess(api.ToolCall{
+		Function: api.FunctionCall{Name: toolName, Arguments: arguments},
+	}, m.workspaceRoot); err == nil && needed && !m.hasFSGrant(req.Kind, req.Scope) {
+		// Workspace-external filesystem access requires explicit approval
+		// unless the scope was already granted for this session.
+		return false
+	}
+
 	if m.collaborationMode == "auto_edit" && fileEditTools[toolName] {
 		return true
 	}
