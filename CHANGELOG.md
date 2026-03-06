@@ -1,5 +1,8 @@
 # Changelog
 
+## [v2026.306.13](https://github.com/tokuhirom/ashron/compare/v2026.306.12...v2026.306.13) - 2026-03-06
+- feat: stub old tool results in API requests, add get_tool_result tool by @tokuhirom in https://github.com/tokuhirom/ashron/pull/138
+
 ## [v2026.306.12](https://github.com/tokuhirom/ashron/compare/v2026.306.11...v2026.306.12) - 2026-03-06
 - feat: reduce token usage for tool-enabled requests by @tokuhirom in https://github.com/tokuhirom/ashron/pull/132
 - chore(deps): update dependency golangci-lint to v2.11.1 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/134
