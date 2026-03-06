@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.306.6](https://github.com/tokuhirom/ashron/compare/v2026.306.5...v2026.306.6) - 2026-03-06
+- Add MCP client integration via mcp_call tool by @tokuhirom in https://github.com/tokuhirom/ashron/pull/110
+- Add debug auto-log path via CLI flag and config by @tokuhirom in https://github.com/tokuhirom/ashron/pull/112
+- fix: keep spinner animated during AI response streaming by @tokuhirom in https://github.com/tokuhirom/ashron/pull/113
+
 ## [v2026.306.5](https://github.com/tokuhirom/ashron/compare/v2026.306.4...v2026.306.5) - 2026-03-06
 - Harden apply_patch matching and diagnostics by @tokuhirom in https://github.com/tokuhirom/ashron/pull/108
 
