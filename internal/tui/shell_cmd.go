@@ -67,7 +67,7 @@ func (m *SimpleModel) handleShellCmdMsg(msg shellCmdMsg) {
 		sb.WriteString(msg.output)
 	}
 	if msg.err != nil {
-		sb.WriteString(fmt.Sprintf("exit error: %v\n", msg.err))
+		fmt.Fprintf(&sb, "exit error: %v\n", msg.err)
 	}
 	m.addUserMessage(sb.String())
 }
