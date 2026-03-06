@@ -175,7 +175,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 		messages = sess.Messages
 	} else {
 		sess = session.New(provName, modelName)
-		messages = initialMessagesForNewSession(availableSkills)
+		messages = initialMessagesForNewSession(availableSkills, &cfg.Tools)
 	}
 	chatSession.Messages = messages
 
@@ -353,7 +353,7 @@ func (m *SimpleModel) ReadAgentsMD() {
 	m.session.Messages = append(m.session.Messages, api.NewSystemMessage(string(content)))
 }
 
-func initialMessagesForNewSession(availableSkills []skills.Skill) []api.Message {
+func initialMessagesForNewSession(availableSkills []skills.Skill, toolsCfg *config.ToolsConfig) []api.Message {
 	systemPrompt := `You are Ashron, an AI coding assistant. You help users with programming tasks by:
 - Writing and editing code
 - Running commands
@@ -362,6 +362,9 @@ func initialMessagesForNewSession(availableSkills []skills.Skill) []api.Message 
 - Suggesting improvements
 
 You have access to tools for file operations and command execution. Always ask for approval before making changes unless the operation is pre-approved.`
+
+	systemPrompt += "\n\n" + sandboxSystemPrompt(toolsCfg)
+
 	if skillsPrompt := skills.MetadataPrompt(availableSkills); skillsPrompt != "" {
 		systemPrompt += "\n\n" + skillsPrompt
 	}
@@ -374,6 +377,37 @@ You have access to tools for file operations and command execution. Always ask f
 	return []api.Message{api.NewSystemMessage(systemPrompt)}
 }
 
+// sandboxSystemPrompt returns a section describing the command execution
+// environment so the model understands any filesystem restrictions.
+func sandboxSystemPrompt(cfg *config.ToolsConfig) string {
+	if cfg.Yolo {
+		return `## Command Execution Environment
+Commands run WITHOUT a sandbox. You have unrestricted access to the filesystem, network, and system resources.`
+	}
+
+	effectiveMode := tools.EffectiveSandboxMode(cfg, tools.ExecuteCommandArgs{})
+	if effectiveMode == "off" {
+		return `## Command Execution Environment
+Commands run WITHOUT a sandbox. You have unrestricted access to the filesystem, network, and system resources.`
+	}
+
+	cwd, _ := os.Getwd()
+
+	return fmt.Sprintf(`## Command Execution Environment
+Commands run inside a sandbox with the following restrictions:
+
+- **Working directory**: %s (full read/write access)
+- **Temporary directories**: /tmp, /var/tmp (read/write access)
+- **Rest of filesystem**: read-only
+- **Network**: allowed
+- **Global writes are blocked**: you cannot write outside the working directory or /tmp. This means:
+  - Installing packages globally (e.g. npm install -g, pip install --user to ~/.local) will fail
+  - Writing to home directory files (e.g. ~/.bashrc, ~/.config) will fail
+  - Use project-local installs instead (e.g. npm install, go get, pip install -t ./vendor)
+
+When a command fails due to permission errors, consider whether a sandbox restriction is the cause and suggest a project-local alternative.`, cwd)
+}
+
 // StartNewSession saves current progress and switches to a brand new session.
 func (m *SimpleModel) StartNewSession() tea.Cmd {
 	m.saveSession()
@@ -383,7 +417,7 @@ func (m *SimpleModel) StartNewSession() tea.Cmd {
 	m.isResume = false
 	m.scrolledToBottom = false
 
-	m.messages = initialMessagesForNewSession(m.availableSkills)
+	m.messages = initialMessagesForNewSession(m.availableSkills, &m.config.Tools)
 	m.session.Messages = m.messages
 	m.pendingToolCalls = nil
 	m.waitingForApproval = false
