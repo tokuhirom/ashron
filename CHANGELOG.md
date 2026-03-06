@@ -1,5 +1,8 @@
 # Changelog
 
+## [v2026.306.11](https://github.com/tokuhirom/ashron/compare/v2026.306.10...v2026.306.11) - 2026-03-06
+- fix: allow Shift+Tab mode toggle during AI processing by @tokuhirom in https://github.com/tokuhirom/ashron/pull/129
+
 ## [v2026.306.10](https://github.com/tokuhirom/ashron/compare/v2026.306.9...v2026.306.10) - 2026-03-06
 - Remove unused git_grep and git_ls_files tools by @tokuhirom in https://github.com/tokuhirom/ashron/pull/126
 - feat: show streaming token count and fixed-width elapsed time in footer by @tokuhirom in https://github.com/tokuhirom/ashron/pull/128
