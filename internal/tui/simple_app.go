@@ -96,9 +96,11 @@ type SimpleModel struct {
 	displayContent []string
 
 	// Token usage tracking
-	currentUsage    *api.Usage
-	toolResultStore *tools.ResultStore
-	scratchpad      *tools.Scratchpad
+	currentUsage            *api.Usage
+	sessionPromptTokens     int
+	sessionCompletionTokens int
+	toolResultStore         *tools.ResultStore
+	scratchpad              *tools.Scratchpad
 
 	availableSkills         []skills.Skill
 	availableCustomCommands []customcmd.Command
@@ -652,6 +654,8 @@ func (m *SimpleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update token usage if provided
 		if msg.Usage != nil {
 			m.currentUsage = msg.Usage
+			m.sessionPromptTokens += msg.Usage.PromptTokens
+			m.sessionCompletionTokens += msg.Usage.CompletionTokens
 		}
 
 		// Render the assistant's markdown text and add to display.
@@ -1124,16 +1128,13 @@ func (m *SimpleModel) renderFooter() string {
 	}
 	b.WriteString(modeStr)
 
-	// Display token usage and context status
+	// Always-visible status line: provider/model + session token totals + context status
 	estimatedTokens, compactThreshold, autoCompact := m.contextMgr.CompactionStatus(m.messages)
 	b.WriteString("\n")
+	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true)
 
-	if m.currentUsage != nil {
-		// Show actual token usage from API response
-		usageText := fmt.Sprintf("↑%d ↓%d",
-			m.currentUsage.PromptTokens, m.currentUsage.CompletionTokens)
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true).Render(usageText))
-	}
+	providerModel := fmt.Sprintf("%s/%s", m.currentProviderName, m.currentModelName)
+	tokenInfo := fmt.Sprintf("↑%d ↓%d", m.sessionPromptTokens, m.sessionCompletionTokens)
 
 	if autoCompact && compactThreshold > 0 {
 		// Show context fill level with color-coded indicator
@@ -1150,14 +1151,12 @@ func (m *SimpleModel) renderFooter() string {
 			colorHex = "#FFA500"
 			label = " [prune soon]"
 		}
-
-		sep := " | "
-		if m.currentUsage == nil {
-			sep = ""
-		}
-		ctxText := fmt.Sprintf("%sctx ~%dk/%dk (%d%%)%s",
-			sep, estimatedTokens/1000, compactThreshold/1000, pct, label)
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(ctxText))
+		ctxText := fmt.Sprintf(" | ctx ~%dk/%dk (%d%%)%s",
+			estimatedTokens/1000, compactThreshold/1000, pct, label)
+		b.WriteString(infoStyle.Render(providerModel+"  "+tokenInfo) +
+			lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(ctxText))
+	} else {
+		b.WriteString(infoStyle.Render(fmt.Sprintf("%s  %s", providerModel, tokenInfo)))
 	}
 
 	return b.String()
