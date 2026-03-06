@@ -27,7 +27,8 @@ var cli struct {
 	BaseURL string `help:"API base URL (overrides config)" name:"base-url"`
 	Log     string `help:"Path to log file for debugging"`
 	Yolo    bool   `help:"Disable sandbox and require no tool approvals (dangerous)"`
-	Resume  string `help:"Resume a previous session by ID" name:"resume" optional:""`
+	Resume  string `help:"Resume a previous session by ID" name:"resume"`
+	Pick    bool   `help:"Show interactive session picker to resume a previous session" name:"pick"`
 
 	Version kong.VersionFlag `help:"Show version and exit"`
 }
@@ -96,7 +97,7 @@ func main() {
 		if loadErr != nil {
 			log.Fatalf("Failed to load session: %v", loadErr)
 		}
-	} else {
+	} else if cli.Pick {
 		summaries, listErr := session.ListSummaries(30)
 		if listErr != nil {
 			slog.Warn("Failed to list sessions", "error", listErr)
