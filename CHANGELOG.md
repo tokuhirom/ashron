@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.306.4](https://github.com/tokuhirom/ashron/compare/v2026.306.3...v2026.306.4) - 2026-03-06
+- feat: add ACP (Agent Client Protocol) server mode by @tokuhirom in https://github.com/tokuhirom/ashron/pull/104
+- feat: add get_diagnostics tool via Language Server Protocol by @tokuhirom in https://github.com/tokuhirom/ashron/pull/106
+- feat: add persistent memory across sessions by @tokuhirom in https://github.com/tokuhirom/ashron/pull/107
+
 ## [v2026.306.3](https://github.com/tokuhirom/ashron/compare/v2026.306.2...v2026.306.3) - 2026-03-06
 - fix: avoid glamour OSC 11 terminal query leaking into bubbletea input by @tokuhirom in https://github.com/tokuhirom/ashron/pull/102
 
