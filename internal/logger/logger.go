@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -29,6 +30,9 @@ func Setup(logFilePath string) error {
 	}
 
 	if logFilePath != "" {
+		if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
+			return fmt.Errorf("failed to create log directory: %w", err)
+		}
 		// Open the log file
 		file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
@@ -47,6 +51,20 @@ func Setup(logFilePath string) error {
 	slog.SetDefault(slog.New(handler))
 
 	return nil
+}
+
+// DefaultLogFilePath returns a timestamped log file path under the XDG data dir.
+func DefaultLogFilePath(now time.Time) string {
+	dataHome := os.Getenv("XDG_DATA_HOME")
+	if dataHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = os.Getenv("HOME")
+		}
+		dataHome = filepath.Join(home, ".local", "share")
+	}
+	filename := fmt.Sprintf("ashron-%s.log", now.Format("20060102-150405"))
+	return filepath.Join(dataHome, "ashron", "logs", filename)
 }
 
 // Close closes the log file if open
