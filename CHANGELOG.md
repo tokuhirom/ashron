@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.306.12](https://github.com/tokuhirom/ashron/compare/v2026.306.11...v2026.306.12) - 2026-03-06
+- feat: reduce token usage for tool-enabled requests by @tokuhirom in https://github.com/tokuhirom/ashron/pull/132
+- chore(deps): update dependency golangci-lint to v2.11.1 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/134
+- feat: show interactive model picker when /model is entered without args by @tokuhirom in https://github.com/tokuhirom/ashron/pull/135
+
 ## [v2026.306.11](https://github.com/tokuhirom/ashron/compare/v2026.306.10...v2026.306.11) - 2026-03-06
 - fix: allow Shift+Tab mode toggle during AI processing by @tokuhirom in https://github.com/tokuhirom/ashron/pull/129
 
