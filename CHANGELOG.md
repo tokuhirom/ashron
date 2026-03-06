@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.306.10](https://github.com/tokuhirom/ashron/compare/v2026.306.9...v2026.306.10) - 2026-03-06
+- Remove unused git_grep and git_ls_files tools by @tokuhirom in https://github.com/tokuhirom/ashron/pull/126
+- feat: show streaming token count and fixed-width elapsed time in footer by @tokuhirom in https://github.com/tokuhirom/ashron/pull/128
+- Replace apply_patch with search_and_replace/replace_range tools by @tokuhirom in https://github.com/tokuhirom/ashron/pull/130
+
 ## [v2026.306.9](https://github.com/tokuhirom/ashron/compare/v2026.306.8...v2026.306.9) - 2026-03-06
 - fix: use actual API token count for auto-compact progress display by @tokuhirom in https://github.com/tokuhirom/ashron/pull/121
 - feat: replace rule-based compaction with LLM summarization by @tokuhirom in https://github.com/tokuhirom/ashron/pull/123
