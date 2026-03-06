@@ -277,37 +277,6 @@ func GetAllTools() []ToolInfo {
 			callback: FetchURL,
 		},
 		{
-			Name:        "git_grep",
-			Description: "Search for a pattern in git repository files",
-			Parameters: api.FunctionParameters{
-				Type: "object",
-				Properties: map[string]api.FunctionProperty{
-					"pattern": {
-						Type:        "string",
-						Description: "The pattern to search for",
-					},
-					"path": {
-						Type:        "string",
-						Description: "Limit search to specific path or file pattern",
-					},
-					"case_insensitive": {
-						Type:        "boolean",
-						Description: "Perform case-insensitive search",
-					},
-					"line_number": {
-						Type:        "boolean",
-						Description: "Show line numbers in output",
-					},
-					"count": {
-						Type:        "boolean",
-						Description: "Show only count of matching lines",
-					},
-				},
-				Required: []string{"pattern"},
-			},
-			callback: GitGrep,
-		},
-		{
 			Name:        "memory_write",
 			Description: "Save or update persistent memory that survives across sessions. Use scope=\"global\" for notes that apply to all projects, or scope=\"project\" (default) for notes specific to the current project. The content completely replaces the existing memory for that scope.",
 			Parameters: api.FunctionParameters{
@@ -350,61 +319,6 @@ func GetAllTools() []ToolInfo {
 				Required: []string{"path"},
 			},
 			callback: GetDiagnostics,
-		},
-		{
-			Name:        "git_ls_files",
-			Description: "List files in git repository",
-			Parameters: api.FunctionParameters{
-				Type: "object",
-				Properties: map[string]api.FunctionProperty{
-					"cached": {
-						Type:        "boolean",
-						Description: "Show cached files",
-					},
-					"deleted": {
-						Type:        "boolean",
-						Description: "Show deleted files",
-					},
-					"modified": {
-						Type:        "boolean",
-						Description: "Show modified files",
-					},
-					"others": {
-						Type:        "boolean",
-						Description: "Show other (untracked) files",
-					},
-					"ignored": {
-						Type:        "boolean",
-						Description: "Show ignored files",
-					},
-					"stage": {
-						Type:        "boolean",
-						Description: "Show staged contents' object name",
-					},
-					"unmerged": {
-						Type:        "boolean",
-						Description: "Show unmerged files",
-					},
-					"killed": {
-						Type:        "boolean",
-						Description: "Show files that git checkout would overwrite",
-					},
-					"exclude_standard": {
-						Type:        "boolean",
-						Description: "Use standard git exclusions",
-					},
-					"full_name": {
-						Type:        "boolean",
-						Description: "Show full path from repository root",
-					},
-					"path": {
-						Type:        "string",
-						Description: "Limit to specific path or file pattern",
-					},
-				},
-				Required: []string{},
-			},
-			callback: GitLsFiles,
 		},
 	}
 }
