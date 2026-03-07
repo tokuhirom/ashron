@@ -98,6 +98,7 @@ type SimpleModel struct {
 	// Token usage tracking
 	currentUsage    *api.Usage
 	toolResultStore *tools.ResultStore
+	scratchpad      *tools.Scratchpad
 
 	availableSkills         []skills.Skill
 	availableCustomCommands []customcmd.Command
@@ -170,8 +171,10 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 
 	// Create tool executor
 	resultStore := tools.NewResultStore()
+	scratchpad := tools.NewScratchpad()
 	toolExec := tools.NewExecutor(&cfg.Tools, resultStore)
 	tools.ConfigureSubagentRuntime(apiClient, activeCtx)
+	tools.ConfigureScratchpad(scratchpad)
 
 	// Create UI components
 	ta := textarea.New()
@@ -229,6 +232,7 @@ func NewSimpleModel(cfg *config.Config, sess *session.Session) (*SimpleModel, er
 		contextMgr:              ctxMgr,
 		toolExec:                toolExec,
 		toolResultStore:         resultStore,
+		scratchpad:              scratchpad,
 		statusMsg:               "Ready",
 		ready:                   true,
 		commandRegistry:         commandRegistry,
@@ -2301,6 +2305,10 @@ func (m *SimpleModel) CompactContext() tea.Cmd {
 	apiClient := m.apiClient
 	contextMgr := m.contextMgr
 	messages := m.messages
+	spSnapshot := ""
+	if m.scratchpad != nil {
+		spSnapshot = m.scratchpad.Snapshot()
+	}
 
 	return func() tea.Msg {
 		ctx := context.Background()
@@ -2308,7 +2316,7 @@ func (m *SimpleModel) CompactContext() tea.Cmd {
 		if err != nil {
 			return compactDoneMsg{originalCount: originalCount, compacted: pruned, err: err}
 		}
-		compacted := contextMgr.BuildCompacted(summary, messages)
+		compacted := contextMgr.BuildCompacted(summary, messages, spSnapshot)
 		return compactDoneMsg{originalCount: originalCount, compacted: compacted}
 	}
 }

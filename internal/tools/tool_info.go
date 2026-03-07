@@ -352,6 +352,40 @@ func GetAllTools() []ToolInfo {
 			callback: MemoryList,
 		},
 		{
+			Name:        "scratchpad_write",
+			Description: "Write a note to the session scratchpad. Scratchpad entries survive context compaction but are discarded when the session ends. Use this to track progress, decisions, file changes, and other notes during long tasks.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"key": {
+						Type:        "string",
+						Description: "A short label for this note (e.g. \"progress\", \"decisions\", \"changed_files\")",
+					},
+					"content": {
+						Type:        "string",
+						Description: "The note content (markdown). Replaces any existing content for this key.",
+					},
+				},
+				Required: []string{"key", "content"},
+			},
+			callback: ScratchpadWrite,
+		},
+		{
+			Name:        "scratchpad_read",
+			Description: "Read scratchpad entries. If key is omitted, returns all entries. Use this to recall progress notes after context compaction.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"key": {
+						Type:        "string",
+						Description: "Key to read (optional — omit to list all entries)",
+					},
+				},
+				Required: []string{},
+			},
+			callback: ScratchpadRead,
+		},
+		{
 			Name:        "get_diagnostics",
 			Description: "Get language server diagnostics (errors, warnings) for a source file. Requires the appropriate language server to be installed (gopls for Go, pyright for Python, typescript-language-server for TS/JS, rust-analyzer for Rust, clangd for C/C++).",
 			Parameters: api.FunctionParameters{
