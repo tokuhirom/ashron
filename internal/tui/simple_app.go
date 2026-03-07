@@ -1120,36 +1120,40 @@ func (m *SimpleModel) renderFooter() string {
 	}
 	b.WriteString(modeStr)
 
-	// Display token usage and auto-compact progress
-	_, compactThreshold, autoCompact := m.contextMgr.CompactionStatus(m.messages)
-	if m.currentUsage != nil || (autoCompact && compactThreshold > 0) {
-		b.WriteString("\n")
-		usageStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#626262")).
-			Italic(true)
+	// Display token usage and context status
+	estimatedTokens, compactThreshold, autoCompact := m.contextMgr.CompactionStatus(m.messages)
+	b.WriteString("\n")
 
-		if m.currentUsage != nil {
-			usageText := fmt.Sprintf("📊 ↑%d in ↓%d out (total %d tokens)",
-				m.currentUsage.PromptTokens, m.currentUsage.CompletionTokens, m.currentUsage.TotalTokens)
-			if autoCompact && compactThreshold > 0 {
-				pct := m.currentUsage.TotalTokens * 100 / compactThreshold
-				if pct > 100 {
-					pct = 100
-				}
-				colorHex := "#626262"
-				if pct >= 80 {
-					colorHex = "#FF4444"
-				} else if pct >= 50 {
-					colorHex = "#FFA500"
-				}
-				usageText += fmt.Sprintf(" (%d%% of auto-compact limit)", pct)
-				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(usageText))
-			} else {
-				b.WriteString(usageStyle.Render(usageText))
-			}
-		} else if autoCompact && compactThreshold > 0 {
-			b.WriteString(usageStyle.Render(fmt.Sprintf("🗜 Auto-compact at %d tokens", compactThreshold)))
+	if m.currentUsage != nil {
+		// Show actual token usage from API response
+		usageText := fmt.Sprintf("↑%d ↓%d",
+			m.currentUsage.PromptTokens, m.currentUsage.CompletionTokens)
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Italic(true).Render(usageText))
+	}
+
+	if autoCompact && compactThreshold > 0 {
+		// Show context fill level with color-coded indicator
+		pct := estimatedTokens * 100 / compactThreshold
+		if pct > 100 {
+			pct = 100
 		}
+		colorHex := "#626262"
+		label := ""
+		if pct >= 90 {
+			colorHex = "#FF4444"
+			label = " [summarize soon]"
+		} else if pct >= 80 {
+			colorHex = "#FFA500"
+			label = " [prune soon]"
+		}
+
+		sep := " | "
+		if m.currentUsage == nil {
+			sep = ""
+		}
+		ctxText := fmt.Sprintf("%sctx ~%dk/%dk (%d%%)%s",
+			sep, estimatedTokens/1000, compactThreshold/1000, pct, label)
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(colorHex)).Italic(true).Render(ctxText))
 	}
 
 	return b.String()
