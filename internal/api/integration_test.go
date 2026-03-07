@@ -32,7 +32,7 @@ func ollamaURL(t *testing.T) string {
 	if err != nil {
 		t.Skipf("Ollama not reachable at %s: %v", url, err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Skipf("Ollama returned status %d at %s", resp.StatusCode, url)
 	}
