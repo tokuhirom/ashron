@@ -131,7 +131,11 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 				slog.Warn("Context summarization failed, keeping pruned messages", slog.Any("error", err))
 				m.messages = msgs
 			} else {
-				m.messages = m.contextMgr.BuildCompacted(summary, m.messages)
+				spSnapshot := ""
+				if m.scratchpad != nil {
+					spSnapshot = m.scratchpad.Snapshot()
+				}
+				m.messages = m.contextMgr.BuildCompacted(summary, m.messages, spSnapshot)
 			}
 			slog.Info("Context compacted", slog.Int("afterMessages", len(m.messages)))
 		}

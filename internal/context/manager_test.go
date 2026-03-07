@@ -176,11 +176,53 @@ func TestBuildCompacted_PreservesSystemMessages(t *testing.T) {
 		{Role: "user", Content: "hello"},
 		{Role: "assistant", Content: "hi"},
 	}
-	result := mgr.BuildCompacted("summary of conversation", msgs)
+	result := mgr.BuildCompacted("summary of conversation", msgs, "")
 	if result[0].Role != "system" || result[0].Content != "system prompt" {
 		t.Fatal("first message should be original system prompt")
 	}
 	if result[1].Role != "system" || !strings.Contains(result[1].Content, "summary of conversation") {
 		t.Fatal("second message should be the summary")
+	}
+}
+
+func TestBuildCompacted_InjectsScratchpad(t *testing.T) {
+	t.Parallel()
+	mgr := NewManager(&config.ContextConfig{MaxTokens: 10000})
+	msgs := []api.Message{
+		{Role: "system", Content: "system prompt"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+	result := mgr.BuildCompacted("summary", msgs, "## progress\nstep 1 done")
+	// system prompt, summary, scratchpad, then recent messages
+	if len(result) < 4 {
+		t.Fatalf("expected at least 4 messages, got %d", len(result))
+	}
+	if !strings.Contains(result[2].Content, "scratchpad") {
+		t.Fatalf("third message should contain scratchpad, got: %q", result[2].Content)
+	}
+	if !strings.Contains(result[2].Content, "step 1 done") {
+		t.Fatalf("scratchpad content should be preserved, got: %q", result[2].Content)
+	}
+}
+
+func TestBuildCompacted_NoScratchpadWhenEmpty(t *testing.T) {
+	t.Parallel()
+	mgr := NewManager(&config.ContextConfig{MaxTokens: 10000})
+	msgs := []api.Message{
+		{Role: "system", Content: "system prompt"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+	withEmpty := mgr.BuildCompacted("summary", msgs, "")
+	withoutEmpty := mgr.BuildCompacted("summary", msgs, "")
+	if len(withEmpty) != len(withoutEmpty) {
+		t.Fatal("empty scratchpad should not add extra messages")
+	}
+	// Verify no scratchpad message was injected
+	for _, m := range withEmpty {
+		if strings.Contains(m.Content, "scratchpad") {
+			t.Fatal("empty scratchpad should not inject a message")
+		}
 	}
 }

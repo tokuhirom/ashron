@@ -128,7 +128,9 @@ func (m *Manager) Prune(messages []api.Message) []api.Message {
 
 // BuildCompacted assembles a new message list from an LLM-generated summary
 // and the most recent messages. Initial system messages are always kept.
-func (m *Manager) BuildCompacted(summary string, original []api.Message) []api.Message {
+// If scratchpad is non-empty, it is injected as a system message after the
+// summary so the agent retains its notes across compaction.
+func (m *Manager) BuildCompacted(summary string, original []api.Message, scratchpad string) []api.Message {
 	var result []api.Message
 
 	// Keep leading system messages (instructions, context, etc.)
@@ -142,6 +144,13 @@ func (m *Manager) BuildCompacted(summary string, original []api.Message) []api.M
 	result = append(result, api.NewSystemMessage(
 		"The following is a summary of the conversation so far:\n\n"+summary,
 	))
+
+	// Inject scratchpad notes so they survive compaction.
+	if scratchpad != "" {
+		result = append(result, api.NewSystemMessage(
+			"The following are your scratchpad notes (written via scratchpad_write):\n\n"+scratchpad,
+		))
+	}
 
 	// Append the most recent messages verbatim, starting at a user-message
 	// boundary so the API always receives well-formed turn pairs.

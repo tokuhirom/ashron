@@ -16,6 +16,7 @@ var readOnlyToolNames = map[string]struct{}{
 	"memory_list":      {},
 	"read_file":        {},
 	"read_skill":       {},
+	"scratchpad_read":  {},
 	"wait_subagent":    {},
 	"get_subagent_log": {},
 }
