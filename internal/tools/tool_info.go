@@ -177,6 +177,54 @@ func GetAllTools() []ToolInfo {
 			callback: ExecuteCommand,
 		},
 		{
+			Name:        "execute_background_command",
+			Description: "Start a shell command in the background. Returns immediately with a task ID. Use get_background_output to check output later, or list_background_commands to see all tasks.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"command": {
+						Type:        "string",
+						Description: "The command to execute",
+					},
+					"working_dir": {
+						Type:        "string",
+						Description: "Working directory for the command (optional)",
+					},
+					"sandbox_mode": {
+						Type:        "string",
+						Description: "Sandbox mode override for this command: 'auto' (default) or 'off'",
+					},
+				},
+				Required: []string{"command"},
+			},
+			callback: ExecuteBackgroundCommand,
+		},
+		{
+			Name:        "get_background_output",
+			Description: "Get the current output of a background command. Works while the command is still running.",
+			Parameters: api.FunctionParameters{
+				Type: "object",
+				Properties: map[string]api.FunctionProperty{
+					"id": {
+						Type:        "string",
+						Description: "Background task ID returned by execute_background_command",
+					},
+				},
+				Required: []string{"id"},
+			},
+			callback: GetBackgroundOutput,
+		},
+		{
+			Name:        "list_background_commands",
+			Description: "List all background commands and their status",
+			Parameters: api.FunctionParameters{
+				Type:       "object",
+				Properties: map[string]api.FunctionProperty{},
+				Required:   []string{},
+			},
+			callback: ListBackgroundCommands,
+		},
+		{
 			Name:        "list_directory",
 			Description: "List files in a directory",
 			Parameters: api.FunctionParameters{

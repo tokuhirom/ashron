@@ -7,18 +7,20 @@ import (
 )
 
 var readOnlyToolNames = map[string]struct{}{
-	"fetch_url":        {},
-	"get_diagnostics":  {},
-	"get_tool_result":  {},
-	"list_directory":   {},
-	"list_subagents":   {},
-	"list_tools":       {},
-	"memory_list":      {},
-	"read_file":        {},
-	"read_skill":       {},
-	"scratchpad_read":  {},
-	"wait_subagent":    {},
-	"get_subagent_log": {},
+	"fetch_url":                {},
+	"get_background_output":    {},
+	"get_diagnostics":          {},
+	"get_tool_result":          {},
+	"list_background_commands": {},
+	"list_directory":           {},
+	"list_subagents":           {},
+	"list_tools":               {},
+	"memory_list":              {},
+	"read_file":                {},
+	"read_skill":               {},
+	"scratchpad_read":          {},
+	"wait_subagent":            {},
+	"get_subagent_log":         {},
 }
 
 var extendedToolsetKeywords = []string{
