@@ -207,16 +207,22 @@ func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []M
 func (c *Client) Summarize(ctx context.Context, messages []Message) (string, error) {
 	summarizeInstruction := Message{
 		Role: "user",
-		Content: `Please create a concise but comprehensive summary of the conversation above.
-Include:
-- What the user was working on and trying to accomplish
-- Key decisions made and their rationale
-- Files modified or created, commands run, and their outcomes
-- Current state of the work
-- Any constraints, preferences, or important context mentioned
-- What still needs to be done
+		Content: `Create a concise but comprehensive summary of the conversation above.
+You MUST preserve the following (in order of priority):
+1. Files modified or created, with exact paths and the nature of changes
+2. Unresolved bugs, errors, or failing tests — include exact error messages
+3. Architectural decisions and their rationale
+4. User's stated preferences, constraints, and instructions
+5. Current state of the work and what still needs to be done
+6. Key commands run and their outcomes (success/failure only for completed items)
 
-Write the summary in a way that allows the conversation to continue seamlessly.`,
+You may aggressively compress or omit:
+- Intermediate exploration steps that did not lead to changes
+- Tool outputs that were only read for information gathering
+- Redundant or superseded attempts
+
+Write the summary as structured notes (not prose) to maximize information density.
+Use file paths, function names, and concrete details rather than vague descriptions.`,
 	}
 
 	req := &ChatCompletionRequest{

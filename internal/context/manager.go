@@ -13,6 +13,14 @@ const (
 	// toolOutputTruncateLen is the maximum bytes kept for tool result content
 	// in messages that fall outside the recent window during pruning.
 	toolOutputTruncateLen = 200
+
+	// pruneRatio is the fraction of MaxTokens at which lightweight pruning
+	// (tool output truncation) kicks in. This is the first line of defense.
+	pruneRatio = 0.80
+
+	// summarizeRatio is the fraction of MaxTokens at which full LLM-based
+	// summarization is triggered. This is the last resort.
+	summarizeRatio = 0.90
 )
 
 // Manager handles context management and compaction
@@ -39,23 +47,70 @@ func (m *Manager) GetTokenUsage(messages []api.Message) int {
 	return totalChars / 4
 }
 
-// CompactionStatus returns the current estimated token usage, the compaction
+// CompactionStatus returns the current estimated token usage, the summarization
 // threshold, and whether auto-compact is enabled.
 func (m *Manager) CompactionStatus(messages []api.Message) (current, threshold int, autoCompact bool) {
 	current = m.GetTokenUsage(messages)
-	threshold = int(float32(m.config.MaxTokens) * m.config.CompactionRatio)
+	// Report the summarization threshold (the point of full compaction).
+	sumThreshold := float32(summarizeRatio)
+	if m.config.CompactionRatio > 0 && m.config.CompactionRatio < sumThreshold {
+		sumThreshold = m.config.CompactionRatio
+	}
+	threshold = int(sumThreshold * float32(m.config.MaxTokens))
 	autoCompact = m.config.AutoCompact
 	return
 }
 
+// CompactionLevel indicates which stage of context management is needed.
+type CompactionLevel int
+
+const (
+	// CompactionNone means no action needed.
+	CompactionNone CompactionLevel = iota
+	// CompactionPrune means lightweight pruning (tool output truncation) is needed.
+	CompactionPrune
+	// CompactionSummarize means full LLM summarization is needed.
+	CompactionSummarize
+)
+
 // NeedsCompaction reports whether the context should be compacted.
+// Kept for backward compatibility — returns true when any compaction is needed.
 func (m *Manager) NeedsCompaction(messages []api.Message) bool {
+	return m.CompactionLevel(messages) >= CompactionSummarize
+}
+
+// NeedsPruning reports whether the context needs at least lightweight pruning.
+func (m *Manager) NeedsPruning(messages []api.Message) bool {
+	return m.CompactionLevel(messages) >= CompactionPrune
+}
+
+// CompactionLevel returns the recommended compaction stage for the current context.
+func (m *Manager) CompactionLevel(messages []api.Message) CompactionLevel {
 	if !m.config.AutoCompact {
-		return false
+		return CompactionNone
 	}
 	usage := m.GetTokenUsage(messages)
-	threshold := int(float32(m.config.MaxTokens) * m.config.CompactionRatio)
-	return usage > threshold || len(messages) > m.config.MaxMessages
+	maxTokens := m.config.MaxTokens
+
+	// Message count overflow triggers full summarization.
+	if len(messages) > m.config.MaxMessages {
+		return CompactionSummarize
+	}
+
+	// Use the configured CompactionRatio as the summarization threshold if it
+	// is set below our default summarizeRatio (for backward compatibility).
+	sumThreshold := float32(summarizeRatio)
+	if m.config.CompactionRatio > 0 && m.config.CompactionRatio < sumThreshold {
+		sumThreshold = m.config.CompactionRatio
+	}
+
+	if usage > int(sumThreshold*float32(maxTokens)) {
+		return CompactionSummarize
+	}
+	if usage > int(pruneRatio*float32(maxTokens)) {
+		return CompactionPrune
+	}
+	return CompactionNone
 }
 
 // Prune reduces token usage by truncating large tool outputs in messages
