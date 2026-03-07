@@ -38,7 +38,7 @@ func compactSearchResult(output string, limit int) string {
 		return output
 	}
 	lines := strings.Split(output, "\n")
-	matchCount := len(lines)
+	lineCount := len(lines)
 
 	// Keep as many lines as fit within the limit.
 	var kept []string
@@ -50,8 +50,8 @@ func compactSearchResult(output string, limit int) string {
 		kept = append(kept, line)
 		total += len(line) + 1
 	}
-	summary := fmt.Sprintf("\n[truncated: showing %d of %d matches, %d bytes total]",
-		len(kept), matchCount, len(output))
+	summary := fmt.Sprintf("\n[truncated: showing %d of %d lines, %d bytes total]",
+		len(kept), lineCount, len(output))
 	return strings.Join(kept, "\n") + summary
 }
 

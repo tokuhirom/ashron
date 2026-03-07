@@ -109,8 +109,17 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 
 	return func() tea.Msg {
 		// Staged context management: prune at 80%, summarize at 90%.
-		switch m.contextMgr.CompactionLevel(m.messages) {
-		case appcontext.CompactionSummarize:
+		level := m.contextMgr.CompactionLevel(m.messages)
+		if level == appcontext.CompactionPrune {
+			slog.Info("Pruning context (lightweight)", slog.Int("messages", len(m.messages)))
+			m.messages = m.contextMgr.Prune(m.messages)
+			// Re-check: if pruning didn't bring us below threshold, escalate.
+			if m.contextMgr.CompactionLevel(m.messages) >= appcontext.CompactionPrune {
+				slog.Info("Pruning insufficient, escalating to summarization")
+				level = appcontext.CompactionSummarize
+			}
+		}
+		if level == appcontext.CompactionSummarize {
 			slog.Info("Summarizing context", slog.Int("beforeMessages", len(m.messages)))
 			pruned := m.contextMgr.Prune(m.messages)
 			summary, err := m.apiClient.Summarize(ctx, pruned)
@@ -121,9 +130,6 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 				m.messages = m.contextMgr.BuildCompacted(summary, m.messages)
 			}
 			slog.Info("Context compacted", slog.Int("afterMessages", len(m.messages)))
-		case appcontext.CompactionPrune:
-			slog.Info("Pruning context (lightweight)", slog.Int("messages", len(m.messages)))
-			m.messages = m.contextMgr.Prune(m.messages)
 		}
 
 		// Stream the response

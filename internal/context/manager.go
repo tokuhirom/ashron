@@ -79,11 +79,6 @@ func (m *Manager) NeedsCompaction(messages []api.Message) bool {
 	return m.CompactionLevel(messages) >= CompactionSummarize
 }
 
-// NeedsPruning reports whether the context needs at least lightweight pruning.
-func (m *Manager) NeedsPruning(messages []api.Message) bool {
-	return m.CompactionLevel(messages) >= CompactionPrune
-}
-
 // CompactionLevel returns the recommended compaction stage for the current context.
 func (m *Manager) CompactionLevel(messages []api.Message) CompactionLevel {
 	if !m.config.AutoCompact {

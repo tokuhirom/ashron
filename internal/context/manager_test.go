@@ -123,17 +123,25 @@ func TestNeedsCompaction_BackwardCompat(t *testing.T) {
 	}
 }
 
-func TestNeedsPruning(t *testing.T) {
+func TestCompactionLevel_ZeroCompactionRatioUsesDefault(t *testing.T) {
 	t.Parallel()
 	mgr := NewManager(&config.ContextConfig{
-		MaxTokens:   1000,
-		MaxMessages: 1000,
-		AutoCompact: true,
+		MaxTokens:       1000,
+		MaxMessages:     1000,
+		CompactionRatio: 0, // zero value — should fall back to summarizeRatio (0.90)
+		AutoCompact:     true,
 	})
-	// Above 80% → NeedsPruning should return true
+	// 85% = 850 tokens = 3400 chars → should be Prune (below 90%)
 	msgs := []api.Message{{Role: "user", Content: strings.Repeat("x", 3400)}}
-	if !mgr.NeedsPruning(msgs) {
-		t.Fatal("expected NeedsPruning to return true above 80%")
+	lvl := mgr.CompactionLevel(msgs)
+	if lvl != CompactionPrune {
+		t.Fatalf("expected CompactionPrune with zero CompactionRatio, got %d", lvl)
+	}
+	// 95% = 950 tokens = 3800 chars → should be Summarize
+	msgs = []api.Message{{Role: "user", Content: strings.Repeat("x", 3800)}}
+	lvl = mgr.CompactionLevel(msgs)
+	if lvl != CompactionSummarize {
+		t.Fatalf("expected CompactionSummarize with zero CompactionRatio, got %d", lvl)
 	}
 }
 
