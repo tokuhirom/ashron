@@ -47,8 +47,14 @@ func (s *Scratchpad) Delete(key string) {
 	delete(s.entries, key)
 }
 
+// maxSnapshotBytes is the maximum size of the scratchpad snapshot injected
+// into context after compaction. Entries are included in sorted key order
+// until the limit is reached; remaining entries are listed as truncated.
+const maxSnapshotBytes = 8000
+
 // Snapshot returns a sorted copy of all entries for injection into context.
-// Returns empty string if the scratchpad is empty.
+// Returns empty string if the scratchpad is empty. The output is capped at
+// maxSnapshotBytes to prevent scratchpad from consuming too much context.
 func (s *Scratchpad) Snapshot() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -62,10 +68,20 @@ func (s *Scratchpad) Snapshot() string {
 	sort.Strings(keys)
 
 	var sb strings.Builder
+	omitted := 0
 	for _, k := range keys {
-		fmt.Fprintf(&sb, "## %s\n%s\n\n", k, s.entries[k])
+		entry := fmt.Sprintf("## %s\n%s\n\n", k, s.entries[k])
+		if sb.Len()+len(entry) > maxSnapshotBytes {
+			omitted++
+			continue
+		}
+		sb.WriteString(entry)
 	}
-	return strings.TrimSpace(sb.String())
+	result := strings.TrimSpace(sb.String())
+	if omitted > 0 {
+		result += fmt.Sprintf("\n\n[%d scratchpad entries omitted due to size limit]", omitted)
+	}
+	return result
 }
 
 // scratchpad is the package-level instance, set by ConfigureScratchpad.

@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -67,6 +68,22 @@ func TestScratchpad_SnapshotSorted(t *testing.T) {
 	}
 	if alphaIdx > zebraIdx {
 		t.Fatalf("expected alpha before zebra in snapshot: %q", s)
+	}
+}
+
+func TestScratchpad_SnapshotSizeLimit(t *testing.T) {
+	t.Parallel()
+	sp := NewScratchpad()
+	// Write entries that exceed maxSnapshotBytes
+	for i := 0; i < 20; i++ {
+		sp.Set(fmt.Sprintf("key%02d", i), strings.Repeat("x", 1000))
+	}
+	s := sp.Snapshot()
+	if len(s) > maxSnapshotBytes+200 { // allow some room for the truncation message
+		t.Fatalf("snapshot too large: %d bytes (limit %d)", len(s), maxSnapshotBytes)
+	}
+	if !strings.Contains(s, "omitted due to size limit") {
+		t.Fatal("expected truncation message in snapshot")
 	}
 }
 
