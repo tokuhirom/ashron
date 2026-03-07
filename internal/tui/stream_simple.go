@@ -121,11 +121,15 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 		}
 		if level == appcontext.CompactionSummarize {
 			slog.Info("Summarizing context", slog.Int("beforeMessages", len(m.messages)))
-			pruned := m.contextMgr.Prune(m.messages)
-			summary, err := m.apiClient.Summarize(ctx, pruned)
+			// Prune is idempotent; skip if already pruned above.
+			msgs := m.messages
+			if m.contextMgr.CompactionLevel(msgs) == appcontext.CompactionSummarize {
+				msgs = m.contextMgr.Prune(msgs)
+			}
+			summary, err := m.apiClient.Summarize(ctx, msgs)
 			if err != nil {
 				slog.Warn("Context summarization failed, keeping pruned messages", slog.Any("error", err))
-				m.messages = pruned
+				m.messages = msgs
 			} else {
 				m.messages = m.contextMgr.BuildCompacted(summary, m.messages)
 			}

@@ -55,7 +55,8 @@ func compactSearchResult(output string, limit int) string {
 	return strings.Join(kept, "\n") + summary
 }
 
-// compactCommandResult keeps stderr/exit info on failure, truncates on success.
+// compactCommandResult uses a 50/50 head/tail split to preserve error messages
+// that typically appear at the end of command output.
 func compactCommandResult(output string, limit int) string {
 	if len(output) <= limit {
 		return output
