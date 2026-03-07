@@ -14,6 +14,7 @@ import (
 	"github.com/tokuhirom/ashron/internal/tools"
 
 	"github.com/tokuhirom/ashron/internal/api"
+	appcontext "github.com/tokuhirom/ashron/internal/context"
 )
 
 type toolExecutionMsg struct {
@@ -107,14 +108,28 @@ func (m *SimpleModel) processMessage() tea.Cmd {
 	m.cancelAPICall = cancel
 
 	return func() tea.Msg {
-		// Check if context needs compaction
-		if m.contextMgr.NeedsCompaction(m.messages) {
-			slog.Info("Compacting context", slog.Int("beforeMessages", len(m.messages)))
-			pruned := m.contextMgr.Prune(m.messages)
-			summary, err := m.apiClient.Summarize(ctx, pruned)
+		// Staged context management: prune at 80%, summarize at 90%.
+		level := m.contextMgr.CompactionLevel(m.messages)
+		if level == appcontext.CompactionPrune {
+			slog.Info("Pruning context (lightweight)", slog.Int("messages", len(m.messages)))
+			m.messages = m.contextMgr.Prune(m.messages)
+			// Re-check: if pruning didn't bring us below threshold, escalate.
+			if m.contextMgr.CompactionLevel(m.messages) >= appcontext.CompactionPrune {
+				slog.Info("Pruning insufficient, escalating to summarization")
+				level = appcontext.CompactionSummarize
+			}
+		}
+		if level == appcontext.CompactionSummarize {
+			slog.Info("Summarizing context", slog.Int("beforeMessages", len(m.messages)))
+			// Prune is idempotent; skip if already pruned above.
+			msgs := m.messages
+			if m.contextMgr.CompactionLevel(msgs) == appcontext.CompactionSummarize {
+				msgs = m.contextMgr.Prune(msgs)
+			}
+			summary, err := m.apiClient.Summarize(ctx, msgs)
 			if err != nil {
 				slog.Warn("Context summarization failed, keeping pruned messages", slog.Any("error", err))
-				m.messages = pruned
+				m.messages = msgs
 			} else {
 				m.messages = m.contextMgr.BuildCompacted(summary, m.messages)
 			}
@@ -389,26 +404,40 @@ func (m *SimpleModel) executeNextTool() tea.Cmd {
 	}
 }
 
+// recentToolResultWindow is the number of most recent tool results to keep
+// in full when stubbing old tool results. Tool results within this window
+// are preserved verbatim for better context quality and prefix cache hits.
+const recentToolResultWindow = 10
+
 // stubOldToolResults replaces tool message content with a lightweight reference
-// for any tool message that already has an assistant response after it.
-// The AI can retrieve the full content on demand via the get_tool_result tool.
+// for tool messages outside the recent window. The AI can retrieve the full
+// content on demand via the get_tool_result tool.
+//
+// This implements observation masking: tool call metadata (name, arguments) is
+// always preserved so the agent remembers what it did, while verbose outputs
+// are replaced with stubs to reduce context noise.
 func stubOldToolResults(messages []api.Message) []api.Message {
-	// Find the index of the last assistant message.
-	lastAssistantIdx := -1
+	// Collect indices of all tool messages in reverse order.
+	var toolIndices []int
 	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == "assistant" {
-			lastAssistantIdx = i
-			break
+		if messages[i].Role == "tool" {
+			toolIndices = append(toolIndices, i)
 		}
 	}
-	if lastAssistantIdx < 0 {
+	if len(toolIndices) == 0 {
 		return messages
+	}
+
+	// Determine which tool messages are within the recent window.
+	recentSet := make(map[int]bool, recentToolResultWindow)
+	for i := 0; i < len(toolIndices) && i < recentToolResultWindow; i++ {
+		recentSet[toolIndices[i]] = true
 	}
 
 	result := make([]api.Message, len(messages))
 	copy(result, messages)
 	for i, msg := range result {
-		if msg.Role == "tool" && i < lastAssistantIdx {
+		if msg.Role == "tool" && !recentSet[i] {
 			result[i].Content = fmt.Sprintf("[stored: use get_tool_result with id=%q to retrieve full output]", msg.ToolCallID)
 		}
 	}
