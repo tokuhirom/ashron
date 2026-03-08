@@ -182,10 +182,15 @@ func (m *SimpleModel) processStreamNew(ctx context.Context, stream <-chan api.St
 	toolCallsByIndex := make(map[int]*api.ToolCall)
 
 	slog.Debug("Starting to process stream")
-	m.currentOperation = "Receiving AI response"
+	m.currentOperation = "Waiting for model..."
 	m.streamingChars = 0
+	firstChunk := true
 
 	for event := range stream {
+		if firstChunk {
+			m.currentOperation = "Receiving AI response"
+			firstChunk = false
+		}
 		if event.Error != nil {
 			if ctx.Err() != nil {
 				// Stream closed due to user cancellation - not an error
