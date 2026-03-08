@@ -93,6 +93,22 @@ providers:
         temperature: 0.7
         context:
           max_tokens: 32768
+  # Example: local llama.cpp / vLLM server with sampling parameters
+  local:
+    type: openai-compat
+    base_url: http://localhost:8080/v1
+    api_key: dummy
+    models:
+      llama:
+        model: llama-3
+        temperature: 0.8
+        top_p: 0.9              # nucleus sampling
+        min_p: 0.05             # minimum probability sampling
+        top_k: 40               # top-k sampling
+        frequency_penalty: 0.5  # penalize frequent tokens
+        presence_penalty: 0.2   # penalize already-used tokens
+        stop:                   # stop sequences
+          - "<|end|>"
 
 # Tools Configuration
 tools:
