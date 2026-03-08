@@ -10,6 +10,16 @@
 - feat: always show provider/model and session token totals in footer by @tokuhirom in https://github.com/tokuhirom/ashron/pull/146
 - fix: add mutex to protect scratchpad global variable from race conditions by @tokuhirom in https://github.com/tokuhirom/ashron/pull/147
 
+## [v2026.308.0](https://github.com/tokuhirom/ashron/compare/v2026.306.13...v2026.308.0) - 2026-03-08
+- docs: add context engineering research report by @tokuhirom in https://github.com/tokuhirom/ashron/pull/139
+- feat: staged context compaction and observation masking by @tokuhirom in https://github.com/tokuhirom/ashron/pull/141
+- feat: improve context usage visibility in status bar by @tokuhirom in https://github.com/tokuhirom/ashron/pull/142
+- feat: session-scoped scratchpad for compaction-resilient notes by @tokuhirom in https://github.com/tokuhirom/ashron/pull/143
+- feat: add integration tests using local Ollama LLM by @tokuhirom in https://github.com/tokuhirom/ashron/pull/144
+- chore(deps): update dependency golangci-lint to v2.11.2 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/145
+- feat: always show provider/model and session token totals in footer by @tokuhirom in https://github.com/tokuhirom/ashron/pull/146
+- fix: add mutex to protect scratchpad global variable from race conditions by @tokuhirom in https://github.com/tokuhirom/ashron/pull/147
+
 ## [v2026.306.13](https://github.com/tokuhirom/ashron/compare/v2026.306.12...v2026.306.13) - 2026-03-06
 - feat: stub old tool results in API requests, add get_tool_result tool by @tokuhirom in https://github.com/tokuhirom/ashron/pull/138
 
