@@ -71,21 +71,27 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 // StreamChatCompletionWithTools sends a streaming request with tool support
 func (c *Client) StreamChatCompletionWithTools(ctx context.Context, messages []Message, tools []Tool) (<-chan StreamEvent, error) {
 	req := &ChatCompletionRequest{
-		Model:            c.modelCfg.Model,
-		Messages:         messages,
-		Temperature:      c.modelCfg.Temperature,
-		TopP:             c.modelCfg.TopP,
-		MinP:             c.modelCfg.MinP,
-		TopK:             c.modelCfg.TopK,
-		FrequencyPenalty: c.modelCfg.FrequencyPenalty,
-		PresencePenalty:  c.modelCfg.PresencePenalty,
-		Stop:             c.modelCfg.Stop,
-		MaxTokens:        c.contextConfig.MaxTokens,
-		Tools:            tools,
-		Stream:           true,
+		Model:             c.modelCfg.Model,
+		Messages:          messages,
+		Temperature:       c.modelCfg.Temperature,
+		TopP:              c.modelCfg.TopP,
+		MinP:              c.modelCfg.MinP,
+		TopK:              c.modelCfg.TopK,
+		FrequencyPenalty:  c.modelCfg.FrequencyPenalty,
+		PresencePenalty:   c.modelCfg.PresencePenalty,
+		Stop:              c.modelCfg.Stop,
+		Seed:              c.modelCfg.Seed,
+		ParallelToolCalls: c.modelCfg.ParallelToolCalls,
+		ReasoningEffort:   c.modelCfg.ReasoningEffort,
+		MaxTokens:         c.contextConfig.MaxTokens,
+		Tools:             tools,
+		Stream:            true,
 		StreamOptions: &StreamOptions{
 			IncludeUsage: true,
 		},
+	}
+	if c.modelCfg.ResponseFormat != "" {
+		req.ResponseFormat = &ResponseFormat{Type: c.modelCfg.ResponseFormat}
 	}
 
 	slog.Info("Sending streaming request",
@@ -241,6 +247,11 @@ Use file paths, function names, and concrete details rather than vague descripti
 		FrequencyPenalty: c.modelCfg.FrequencyPenalty,
 		PresencePenalty:  c.modelCfg.PresencePenalty,
 		Stop:             c.modelCfg.Stop,
+		Seed:             c.modelCfg.Seed,
+		ReasoningEffort:  c.modelCfg.ReasoningEffort,
+	}
+	if c.modelCfg.ResponseFormat != "" {
+		req.ResponseFormat = &ResponseFormat{Type: c.modelCfg.ResponseFormat}
 	}
 
 	body, err := json.Marshal(req)
