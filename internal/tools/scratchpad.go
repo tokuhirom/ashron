@@ -85,11 +85,22 @@ func (s *Scratchpad) Snapshot() string {
 }
 
 // scratchpad is the package-level instance, set by ConfigureScratchpad.
-var scratchpad *Scratchpad
+var (
+	scratchpadMu sync.RWMutex
+	scratchpad   *Scratchpad
+)
 
 // ConfigureScratchpad sets the package-level scratchpad instance.
 func ConfigureScratchpad(sp *Scratchpad) {
+	scratchpadMu.Lock()
+	defer scratchpadMu.Unlock()
 	scratchpad = sp
+}
+
+func getScratchpad() *Scratchpad {
+	scratchpadMu.RLock()
+	defer scratchpadMu.RUnlock()
+	return scratchpad
 }
 
 // ScratchpadWrite handles the scratchpad_write tool call.
@@ -109,12 +120,13 @@ func ScratchpadWrite(_ *config.ToolsConfig, toolCallID string, argsJSON string) 
 		result.Output = "Error: key is required"
 		return result
 	}
-	if scratchpad == nil {
+	sp := getScratchpad()
+	if sp == nil {
 		result.Error = fmt.Errorf("scratchpad not available")
 		result.Output = "Error: scratchpad not available"
 		return result
 	}
-	scratchpad.Set(args.Key, args.Content)
+	sp.Set(args.Key, args.Content)
 	result.Output = fmt.Sprintf("Scratchpad key %q updated.", args.Key)
 	return result
 }
@@ -130,14 +142,15 @@ func ScratchpadRead(_ *config.ToolsConfig, toolCallID string, argsJSON string) a
 		result.Output = "Error: " + err.Error()
 		return result
 	}
-	if scratchpad == nil {
+	sp := getScratchpad()
+	if sp == nil {
 		result.Error = fmt.Errorf("scratchpad not available")
 		result.Output = "Error: scratchpad not available"
 		return result
 	}
 	// If no key specified, return all entries.
 	if args.Key == "" {
-		snapshot := scratchpad.Snapshot()
+		snapshot := sp.Snapshot()
 		if snapshot == "" {
 			result.Output = "(scratchpad is empty)"
 		} else {
@@ -145,7 +158,7 @@ func ScratchpadRead(_ *config.ToolsConfig, toolCallID string, argsJSON string) a
 		}
 		return result
 	}
-	v, ok := scratchpad.Get(args.Key)
+	v, ok := sp.Get(args.Key)
 	if !ok {
 		result.Output = fmt.Sprintf("No scratchpad entry for key %q", args.Key)
 		return result
