@@ -33,9 +33,15 @@ type ProviderConfig struct {
 }
 
 type ModelConfig struct {
-	Model       string
-	Temperature float32
-	Context     *ContextConfig
+	Model            string
+	Temperature      float32
+	TopP             float32
+	MinP             float32
+	TopK             int
+	FrequencyPenalty float32
+	PresencePenalty  float32
+	Stop             []string
+	Context          *ContextConfig
 }
 
 type ToolsConfig struct {
@@ -88,9 +94,15 @@ type rawProviderConfig struct {
 }
 
 type rawModelConfig struct {
-	Model       string                    `yaml:"model"`
-	Temperature float32                   `yaml:"temperature"`
-	Context     *rawContextOverrideConfig `yaml:"context"`
+	Model            string                    `yaml:"model"`
+	Temperature      float32                   `yaml:"temperature"`
+	TopP             float32                   `yaml:"top_p"`
+	MinP             float32                   `yaml:"min_p"`
+	TopK             int                       `yaml:"top_k"`
+	FrequencyPenalty float32                   `yaml:"frequency_penalty"`
+	PresencePenalty  float32                   `yaml:"presence_penalty"`
+	Stop             []string                  `yaml:"stop"`
+	Context          *rawContextOverrideConfig `yaml:"context"`
 }
 
 type rawToolsConfig struct {
@@ -232,8 +244,14 @@ func convertConfig(raw rawConfig) (*Config, error) {
 		models := make(map[string]ModelConfig, len(rp.Models))
 		for mname, rm := range rp.Models {
 			modelCfg := ModelConfig{
-				Model:       rm.Model,
-				Temperature: rm.Temperature,
+				Model:            rm.Model,
+				Temperature:      rm.Temperature,
+				TopP:             rm.TopP,
+				MinP:             rm.MinP,
+				TopK:             rm.TopK,
+				FrequencyPenalty: rm.FrequencyPenalty,
+				PresencePenalty:  rm.PresencePenalty,
+				Stop:             rm.Stop,
 			}
 			if rm.Context != nil {
 				ctx := mergeContext(defaultContext, rm.Context)

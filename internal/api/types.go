@@ -7,14 +7,20 @@ import (
 
 // ChatCompletionRequest represents a chat completion API request
 type ChatCompletionRequest struct {
-	Model         string         `json:"model"`
-	Messages      []Message      `json:"messages"`
-	Temperature   float32        `json:"temperature,omitempty"`
-	MaxTokens     int            `json:"max_tokens,omitempty"`
-	Stream        bool           `json:"stream,omitempty"`
-	Tools         []Tool         `json:"tools,omitempty"`
-	ToolChoice    interface{}    `json:"tool_choice,omitempty"`
-	StreamOptions *StreamOptions `json:"stream_options,omitempty"`
+	Model            string         `json:"model"`
+	Messages         []Message      `json:"messages"`
+	Temperature      float32        `json:"temperature,omitempty"`
+	TopP             float32        `json:"top_p,omitempty"`
+	MinP             float32        `json:"min_p,omitempty"`
+	TopK             int            `json:"top_k,omitempty"`
+	FrequencyPenalty float32        `json:"frequency_penalty,omitempty"`
+	PresencePenalty  float32        `json:"presence_penalty,omitempty"`
+	Stop             []string       `json:"stop,omitempty"`
+	MaxTokens        int            `json:"max_tokens,omitempty"`
+	Stream           bool           `json:"stream,omitempty"`
+	Tools            []Tool         `json:"tools,omitempty"`
+	ToolChoice       interface{}    `json:"tool_choice,omitempty"`
+	StreamOptions    *StreamOptions `json:"stream_options,omitempty"`
 }
 
 // StreamOptions controls streaming behavior
