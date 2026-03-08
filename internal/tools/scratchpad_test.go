@@ -88,7 +88,6 @@ func TestScratchpad_SnapshotSizeLimit(t *testing.T) {
 }
 
 func TestScratchpadWrite_Tool(t *testing.T) {
-	t.Parallel()
 	sp := NewScratchpad()
 	ConfigureScratchpad(sp)
 	defer ConfigureScratchpad(nil)
@@ -104,7 +103,6 @@ func TestScratchpadWrite_Tool(t *testing.T) {
 }
 
 func TestScratchpadRead_AllEntries(t *testing.T) {
-	t.Parallel()
 	sp := NewScratchpad()
 	ConfigureScratchpad(sp)
 	defer ConfigureScratchpad(nil)
@@ -122,7 +120,6 @@ func TestScratchpadRead_AllEntries(t *testing.T) {
 }
 
 func TestScratchpadRead_SingleKey(t *testing.T) {
-	t.Parallel()
 	sp := NewScratchpad()
 	ConfigureScratchpad(sp)
 	defer ConfigureScratchpad(nil)
@@ -135,7 +132,6 @@ func TestScratchpadRead_SingleKey(t *testing.T) {
 }
 
 func TestScratchpadWrite_MissingKey(t *testing.T) {
-	t.Parallel()
 	sp := NewScratchpad()
 	ConfigureScratchpad(sp)
 	defer ConfigureScratchpad(nil)
