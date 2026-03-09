@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.309.2](https://github.com/tokuhirom/ashron/compare/v2026.309.1...v2026.309.2) - 2026-03-09
+- fix: show directory path in list_directory tool summary by @tokuhirom in https://github.com/tokuhirom/ashron/pull/158
+- docs: note to update toolCallSummaryLines when adding new tools by @tokuhirom in https://github.com/tokuhirom/ashron/pull/161
+- fix: show tool-specific details in all tool call summaries by @tokuhirom in https://github.com/tokuhirom/ashron/pull/160
+
 ## [v2026.309.0](https://github.com/tokuhirom/ashron/compare/v2026.308.0...v2026.309.0) - 2026-03-09
 - feat: add sampling parameters for OpenAI-compatible APIs by @tokuhirom in https://github.com/tokuhirom/ashron/pull/149
 - docs: add sampling parameters example to README by @tokuhirom in https://github.com/tokuhirom/ashron/pull/151
