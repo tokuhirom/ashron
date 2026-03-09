@@ -538,5 +538,15 @@ func toolCallSummaryLines(tc api.ToolCall) []string {
 		)
 	}
 
+	if tc.Function.Name == "list_directory" {
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Path != "" {
+			return append(lines, "  └ List directory: "+args.Path)
+		}
+		return append(lines, "  └ List directory")
+	}
+
 	return append(lines, "  └ Used tool: "+tc.Function.Name)
 }
