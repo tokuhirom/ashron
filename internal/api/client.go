@@ -63,7 +63,9 @@ func (c *Client) newRequest(ctx context.Context, method, path string, body io.Re
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.providerCfg.APIKey)
+	if c.providerCfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.providerCfg.APIKey)
+	}
 
 	return req, nil
 }

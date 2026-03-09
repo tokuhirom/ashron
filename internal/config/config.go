@@ -418,12 +418,9 @@ func (c *Config) Validate() error {
 	if len(c.Providers) == 0 {
 		return &ConfigError{"no providers configured"}
 	}
-	_, provider, err := c.ActiveProvider()
+	_, _, err := c.ActiveProvider()
 	if err != nil {
 		return err
-	}
-	if provider.APIKey == "" {
-		return ErrMissingAPIKey
 	}
 	_, _, err = c.ActiveModel()
 	return err
