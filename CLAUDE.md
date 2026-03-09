@@ -46,6 +46,7 @@ go test ./internal/api/ -run TestIntegration -v -timeout 10m
 - Use `slog` for structured logging
 - OpenAI-compatible API via `internal/api` package
 - Tools defined in `internal/tools/tool_info.go`
+- When adding a new tool, also add its TUI summary in `toolCallSummaryLines()` in `internal/tui/stream_simple.go`
 - Read-only tool subset in `internal/tools/tool_selection.go`
 - Config in YAML: `~/.config/ashron/ashron.yaml`
 
