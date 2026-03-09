@@ -1,8 +1,89 @@
 # TODO
 
-## Session Management
+## P0: まず体験を成立させる（Claude/Codex級に近づくための必須）
 
-- [ ] TUI session selection screen on startup
-  - Show a list of recent sessions (sorted by date, with working directory and model)
-  - Allow selecting a session to resume interactively without needing `--resume <id>`
-  - Sessions stored in `$XDG_DATA_HOME/ashron/sessions/`
+- [x] セッション選択UIを起動時に提供する
+  - 最近のセッション一覧（日時/作業ディレクトリ/モデル）を表示
+  - `--resume <id>` なしで再開できるようにする
+  - セッション保存先: `$XDG_DATA_HOME/ashron/sessions/`
+
+- [x] 差分ベース編集フローを追加する
+  - `search_and_replace` / `replace_range` ツールで実装済み
+  - `write_file` は変更分析（差分サマリ・バックアップ）付き
+
+- [x] 承認UXを改善する
+  - 危険操作（`rm -rf`, `git reset --hard` 等）に [DANGER] バッジ表示
+  - `[d]` キーで詳細表示トグル
+  - ツールサマリで「何を」「なぜ」を1画面で確認可能
+
+- [x] 長時間処理の可視化と中断制御
+  - 経過時間 `[5.1s]` 表示、サブエージェント進捗表示
+  - Escape でAPI中断、Ctrl+C で全体キャンセル
+  - `close_subagent` で個別キャンセル
+
+## P1: 日常利用を快適にする
+
+- [x] 標準スラッシュコマンドを拡充する
+  - `/status`（モデル/承認設定/サンドボックス/作業ディレクトリ）
+  - `/sessions`（一覧・再開・削除）
+  - `/tools`（利用可能ツールと承認状態）
+  - その他: `/help`, `/clear`, `/new`, `/compact`, `/commit`, `/init`, `/quit`, `/exit`, `/config`, `/skills`, `/commands`, `/model`
+
+- [ ] 入力体験の改善
+  - 履歴検索（`Ctrl+R` 相当）
+  - 定型プロンプトスニペット（保存/呼び出し）
+  - [x] 複数行入力（Ctrl+J）
+  - [x] スラッシュコマンド補完ポップアップ
+
+- [ ] プロジェクト認識を強化する
+  - [x] `/init` で AGENTS.md 生成（言語別ヒューリスティクス付き）
+  - リポジトリ初回読み込み時の要約インデックス作成
+  - 言語別探索の初動最適化をさらに強化
+
+- [ ] エラーリカバリを改善する
+  - API失敗時の自動リトライ（指数バックオフ）
+  - レート制限/タイムアウト時に次アクションを提案
+
+## P2: Claude/Codexに寄せる高度機能
+
+- [x] `apply_patch` 相当の安全編集ツールを実装する
+  - `search_and_replace` + `replace_range` で代替実装済み
+
+- [ ] ファイル参照体験を強化する
+  - 返答内の `path:line` 参照をジャンプしやすく表示
+  - 変更対象ファイルのクイックプレビュー
+  - [x] `@path` プレフィックスによるファイル補完
+
+- [ ] テスト実行フローの定型化
+  - 変更後に推奨テストを自動提案
+  - 失敗時にログ要約と再現コマンドを提示
+
+- [x] 複数プロバイダ運用の改善
+  - `/model` コマンドで全プロバイダ横断のモデル切替
+  - インタラクティブモデルピッカー
+  - [ ] 会話途中での一時的モデル切替（1ターンのみ）
+
+- [x] MCP クライアント統合
+  - `mcp_call` ツールで外部MCPサーバー呼び出し対応
+
+- [x] サブエージェントシステム
+  - `spawn_subagent` / `wait_subagent` / `list_subagents` / `get_subagent_log` / `close_subagent`
+  - TUI上でサブエージェント進捗表示
+
+- [x] 段階的コンテキスト圧縮
+  - 80%で軽量プルーニング、90%でLLM要約
+  - スクラッチパッドで圧縮耐性メモ
+
+## P3: 運用・品質
+
+- [x] E2Eテストを整備する（TUI操作 + ツール承認 + セッション再開）
+- [ ] クラッシュリカバリを強化する
+  - [x] セッション自動保存（操作ごと）
+  - 破損セッション検出・救済
+- [ ] テレメトリ（ローカル任意opt-in）を導入しUX改善の根拠データを取る
+- [ ] リリースノートを「ユーザー価値ベース」で自動生成する
+
+## 非目標（当面やらない）
+
+- IDE完全統合を先に作るより、TUI単体の編集/承認/再開体験を先に完成させる
+- ツール数の拡大より、既存ツールの安全性と説明可能性を優先する
