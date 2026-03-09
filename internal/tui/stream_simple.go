@@ -538,5 +538,142 @@ func toolCallSummaryLines(tc api.ToolCall) []string {
 		)
 	}
 
+	if tc.Function.Name == "list_directory" {
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Path != "" {
+			return append(lines, "  └ List directory: "+args.Path)
+		}
+		return append(lines, "  └ List directory")
+	}
+	if tc.Function.Name == "fetch_url" {
+		var args struct {
+			URL string `json:"url"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.URL != "" {
+			return append(lines, "  └ Fetch URL: "+args.URL)
+		}
+		return append(lines, "  └ Fetch URL")
+	}
+	if tc.Function.Name == "get_diagnostics" {
+		var args struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Path != "" {
+			return append(lines, "  └ Diagnostics: "+args.Path)
+		}
+		return append(lines, "  └ Diagnostics")
+	}
+	if tc.Function.Name == "read_skill" {
+		var args struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Name != "" {
+			return append(lines, "  └ Read skill: "+args.Name)
+		}
+		return append(lines, "  └ Read skill")
+	}
+	if tc.Function.Name == "mcp_call" {
+		var args struct {
+			Server string `json:"server"`
+			Tool   string `json:"tool"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Server != "" {
+			return append(lines, "  └ MCP call: "+args.Server+"/"+args.Tool)
+		}
+		return append(lines, "  └ MCP call")
+	}
+	if tc.Function.Name == "get_tool_result" {
+		var args struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.ID != "" {
+			return append(lines, "  └ Get tool result: "+args.ID)
+		}
+		return append(lines, "  └ Get tool result")
+	}
+	if tc.Function.Name == "spawn_subagent" {
+		var args struct {
+			Prompt string `json:"prompt"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Prompt != "" {
+			return append(lines, "  └ Spawn subagent: "+truncateForApproval(args.Prompt))
+		}
+		return append(lines, "  └ Spawn subagent")
+	}
+	if tc.Function.Name == "send_subagent_input" {
+		var args struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.ID != "" {
+			return append(lines, "  └ Send subagent input: "+args.ID)
+		}
+		return append(lines, "  └ Send subagent input")
+	}
+	if tc.Function.Name == "wait_subagent" {
+		var args struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.ID != "" {
+			return append(lines, "  └ Wait subagent: "+args.ID)
+		}
+		return append(lines, "  └ Wait subagent")
+	}
+	if tc.Function.Name == "close_subagent" {
+		var args struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.ID != "" {
+			return append(lines, "  └ Close subagent: "+args.ID)
+		}
+		return append(lines, "  └ Close subagent")
+	}
+	if tc.Function.Name == "get_subagent_log" {
+		var args struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.ID != "" {
+			return append(lines, "  └ Get subagent log: "+args.ID)
+		}
+		return append(lines, "  └ Get subagent log")
+	}
+	if tc.Function.Name == "list_subagents" {
+		return append(lines, "  └ List subagents")
+	}
+	if tc.Function.Name == "list_tools" {
+		return append(lines, "  └ List tools")
+	}
+	if tc.Function.Name == "memory_write" {
+		var args struct {
+			Scope string `json:"scope"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Scope != "" {
+			return append(lines, "  └ Memory write ("+args.Scope+")")
+		}
+		return append(lines, "  └ Memory write")
+	}
+	if tc.Function.Name == "memory_list" {
+		return append(lines, "  └ Memory list")
+	}
+	if tc.Function.Name == "scratchpad_write" {
+		var args struct {
+			Key string `json:"key"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Key != "" {
+			return append(lines, "  └ Scratchpad write: "+args.Key)
+		}
+		return append(lines, "  └ Scratchpad write")
+	}
+	if tc.Function.Name == "scratchpad_read" {
+		var args struct {
+			Key string `json:"key"`
+		}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err == nil && args.Key != "" {
+			return append(lines, "  └ Scratchpad read: "+args.Key)
+		}
+		return append(lines, "  └ Scratchpad read")
+	}
+
 	return append(lines, "  └ Used tool: "+tc.Function.Name)
 }
