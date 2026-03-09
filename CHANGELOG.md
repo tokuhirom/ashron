@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2026.309.0](https://github.com/tokuhirom/ashron/compare/v2026.308.0...v2026.309.0) - 2026-03-09
+- feat: add sampling parameters for OpenAI-compatible APIs by @tokuhirom in https://github.com/tokuhirom/ashron/pull/149
+- docs: add sampling parameters example to README by @tokuhirom in https://github.com/tokuhirom/ashron/pull/151
+- feat: add response_format, seed, parallel_tool_calls, reasoning_effort params by @tokuhirom in https://github.com/tokuhirom/ashron/pull/152
+- feat: improve UX for Ollama and other local providers by @tokuhirom in https://github.com/tokuhirom/ashron/pull/153
+
 ## [v2026.308.0](https://github.com/tokuhirom/ashron/compare/v2026.306.13...v2026.308.0) - 2026-03-08
 - docs: add context engineering research report by @tokuhirom in https://github.com/tokuhirom/ashron/pull/139
 - feat: staged context compaction and observation masking by @tokuhirom in https://github.com/tokuhirom/ashron/pull/141
