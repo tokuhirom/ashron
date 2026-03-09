@@ -5,6 +5,7 @@
 - docs: add sampling parameters example to README by @tokuhirom in https://github.com/tokuhirom/ashron/pull/151
 - feat: add response_format, seed, parallel_tool_calls, reasoning_effort params by @tokuhirom in https://github.com/tokuhirom/ashron/pull/152
 - feat: improve UX for Ollama and other local providers by @tokuhirom in https://github.com/tokuhirom/ashron/pull/153
+- test: add integration tests for subagent tool functions by @tokuhirom in https://github.com/tokuhirom/ashron/pull/154
 
 ## [v2026.308.0](https://github.com/tokuhirom/ashron/compare/v2026.306.13...v2026.308.0) - 2026-03-08
 - docs: add context engineering research report by @tokuhirom in https://github.com/tokuhirom/ashron/pull/139
