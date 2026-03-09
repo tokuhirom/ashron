@@ -48,7 +48,9 @@ func setupSubagentTestServer(t *testing.T, replyFn func(call int, req api.ChatCo
 			if err != nil {
 				t.Fatalf("marshal chunk: %v", err)
 			}
-			fmt.Fprintf(w, "data: %s\n\n", b)
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+				return
+			}
 			if flusher != nil {
 				flusher.Flush()
 			}
@@ -56,7 +58,9 @@ func setupSubagentTestServer(t *testing.T, replyFn func(call int, req api.ChatCo
 				time.Sleep(chunkDelay)
 			}
 		}
-		io.WriteString(w, "data: [DONE]\n\n")
+		if _, err := io.WriteString(w, "data: [DONE]\n\n"); err != nil {
+			return
+		}
 		if flusher != nil {
 			flusher.Flush()
 		}
@@ -83,10 +87,17 @@ func setupSubagentTestServer(t *testing.T, replyFn func(call int, req api.ChatCo
 	return server
 }
 
+func mustUnmarshal(t *testing.T, data string, v interface{}) {
+	t.Helper()
+	if err := json.Unmarshal([]byte(data), v); err != nil {
+		t.Fatalf("json.Unmarshal error: %v (data: %s)", err, data)
+	}
+}
+
 // TestSubagentToolsIntegration_SpawnAndWait tests the full path:
 // SpawnSubagent (JSON args) -> server streams response -> WaitSubagent (JSON args) -> JSON result
 func TestSubagentToolsIntegration_SpawnAndWait(t *testing.T) {
-	setupSubagentTestServer(t, func(call int, _ api.ChatCompletionRequest) []api.StreamResponse {
+	setupSubagentTestServer(t, func(_ int, _ api.ChatCompletionRequest) []api.StreamResponse {
 		return []api.StreamResponse{
 			{Choices: []api.Choice{{Index: 0, Delta: api.Message{Content: "hello from subagent"}}}},
 			{Choices: []api.Choice{{Index: 0, FinishReason: "stop"}}},
@@ -102,9 +113,7 @@ func TestSubagentToolsIntegration_SpawnAndWait(t *testing.T) {
 		ID     string `json:"id"`
 		Status string `json:"status"`
 	}
-	if err := json.Unmarshal([]byte(spawnResult.Output), &spawnOut); err != nil {
-		t.Fatalf("SpawnSubagent output parse error: %v (output: %s)", err, spawnResult.Output)
-	}
+	mustUnmarshal(t, spawnResult.Output, &spawnOut)
 	if spawnOut.ID == "" || spawnOut.Status != "running" {
 		t.Fatalf("unexpected spawn output: %+v", spawnOut)
 	}
@@ -122,9 +131,7 @@ func TestSubagentToolsIntegration_SpawnAndWait(t *testing.T) {
 		Output   string `json:"output"`
 		Error    string `json:"error"`
 	}
-	if err := json.Unmarshal([]byte(waitResult.Output), &waitOut); err != nil {
-		t.Fatalf("WaitSubagent output parse error: %v (output: %s)", err, waitResult.Output)
-	}
+	mustUnmarshal(t, waitResult.Output, &waitOut)
 	if waitOut.Status != "completed" {
 		t.Fatalf("expected completed, got %s", waitOut.Status)
 	}
@@ -139,19 +146,7 @@ func TestSubagentToolsIntegration_SpawnAndWait(t *testing.T) {
 // TestSubagentToolsIntegration_WaitTimeout tests that WaitSubagent returns timed_out=true
 // when the subagent takes longer than the specified timeout.
 func TestSubagentToolsIntegration_WaitTimeout(t *testing.T) {
-	setupSubagentTestServer(t, func(call int, _ api.ChatCompletionRequest) []api.StreamResponse {
-		return []api.StreamResponse{
-			{Choices: []api.Choice{{Index: 0, Delta: api.Message{Content: "slow response"}}}},
-			{Choices: []api.Choice{{Index: 0, FinishReason: "stop"}}},
-		}
-	}, 200*time.Millisecond) // slow chunks
-
-	// Setup with long delay so timeout triggers
-	subagentMu.Lock()
-	subagentManager = nil
-	subagentMu.Unlock()
-
-	setupSubagentTestServer(t, func(call int, _ api.ChatCompletionRequest) []api.StreamResponse {
+	setupSubagentTestServer(t, func(_ int, _ api.ChatCompletionRequest) []api.StreamResponse {
 		return []api.StreamResponse{
 			{Choices: []api.Choice{{Index: 0, Delta: api.Message{Content: "chunk1"}}}},
 			{Choices: []api.Choice{{Index: 0, Delta: api.Message{Content: "chunk2"}}}},
@@ -159,25 +154,25 @@ func TestSubagentToolsIntegration_WaitTimeout(t *testing.T) {
 		}
 	}, 2*time.Second) // each chunk takes 2s → total ~4s
 
-	spawnResult2 := SpawnSubagent(nil, "tc-3", `{"prompt":"very slow"}`)
-	if spawnResult2.Error != nil {
-		t.Fatalf("SpawnSubagent error: %v", spawnResult2.Error)
+	spawnResult := SpawnSubagent(nil, "tc-1", `{"prompt":"very slow"}`)
+	if spawnResult.Error != nil {
+		t.Fatalf("SpawnSubagent error: %v", spawnResult.Error)
 	}
-	var spawnOut2 struct {
+	var spawnOut struct {
 		ID string `json:"id"`
 	}
-	json.Unmarshal([]byte(spawnResult2.Output), &spawnOut2)
+	mustUnmarshal(t, spawnResult.Output, &spawnOut)
 
-	waitArgs2 := fmt.Sprintf(`{"id":"%s","timeout_seconds":1}`, spawnOut2.ID)
-	waitResult := WaitSubagent(nil, "tc-4", waitArgs2)
+	waitArgs := fmt.Sprintf(`{"id":"%s","timeout_seconds":1}`, spawnOut.ID)
+	waitResult := WaitSubagent(nil, "tc-2", waitArgs)
 	if waitResult.Error != nil {
 		t.Fatalf("WaitSubagent error: %v", waitResult.Error)
 	}
 	var waitOut struct {
 		TimedOut bool   `json:"timed_out"`
-		Status  string `json:"status"`
+		Status   string `json:"status"`
 	}
-	json.Unmarshal([]byte(waitResult.Output), &waitOut)
+	mustUnmarshal(t, waitResult.Output, &waitOut)
 	if !waitOut.TimedOut {
 		t.Fatalf("expected timeout, got timed_out=false")
 	}
@@ -281,7 +276,7 @@ func TestSubagentToolsIntegration_FullLifecycle(t *testing.T) {
 	var spawnOut struct {
 		ID string `json:"id"`
 	}
-	json.Unmarshal([]byte(spawnResult.Output), &spawnOut)
+	mustUnmarshal(t, spawnResult.Output, &spawnOut)
 
 	// 2. Wait for completion
 	waitResult := WaitSubagent(nil, "tc-2", fmt.Sprintf(`{"id":"%s","timeout_seconds":5}`, spawnOut.ID))
@@ -292,7 +287,7 @@ func TestSubagentToolsIntegration_FullLifecycle(t *testing.T) {
 		Status string `json:"status"`
 		Output string `json:"output"`
 	}
-	json.Unmarshal([]byte(waitResult.Output), &waitOut)
+	mustUnmarshal(t, waitResult.Output, &waitOut)
 	if waitOut.Status != "completed" || waitOut.Output != "first reply" {
 		t.Fatalf("unexpected wait output: %+v", waitOut)
 	}
@@ -303,7 +298,7 @@ func TestSubagentToolsIntegration_FullLifecycle(t *testing.T) {
 		t.Fatalf("List error: %v", listResult.Error)
 	}
 	var listOut []map[string]interface{}
-	json.Unmarshal([]byte(listResult.Output), &listOut)
+	mustUnmarshal(t, listResult.Output, &listOut)
 	if len(listOut) != 1 {
 		t.Fatalf("expected 1 agent in list, got %d", len(listOut))
 	}
@@ -332,7 +327,7 @@ func TestSubagentToolsIntegration_FullLifecycle(t *testing.T) {
 		Status string `json:"status"`
 		Output string `json:"output"`
 	}
-	json.Unmarshal([]byte(waitResult2.Output), &waitOut2)
+	mustUnmarshal(t, waitResult2.Output, &waitOut2)
 	if waitOut2.Status != "completed" || waitOut2.Output != "second reply" {
 		t.Fatalf("unexpected wait(2) output: %+v", waitOut2)
 	}
