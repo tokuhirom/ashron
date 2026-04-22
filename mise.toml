@@ -1,5 +1,5 @@
 [tools]
-go = "1.26.1"
+go = "1.26.2"
 golangci-lint = "2.11.2"
 ollama = "latest"
 lefthook = "2.1.3"
