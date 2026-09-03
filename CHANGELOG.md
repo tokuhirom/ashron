@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.903.0](https://github.com/tokuhirom/ashron/compare/v2026.309.2...v2026.903.0) - 2026-09-03
+- fix(deps): update module charm.land/bubbletea/v2 to v2.0.9 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/184
+- chore(deps): update dependency golangci-lint to v2.13.2 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/166
+- chore(deps): update dependency lefthook to v2.1.12 by @renovate[bot] in https://github.com/tokuhirom/ashron/pull/167
+
 ## [v2026.309.2](https://github.com/tokuhirom/ashron/compare/v2026.309.1...v2026.309.2) - 2026-03-09
 - fix: show directory path in list_directory tool summary by @tokuhirom in https://github.com/tokuhirom/ashron/pull/158
 - docs: note to update toolCallSummaryLines when adding new tools by @tokuhirom in https://github.com/tokuhirom/ashron/pull/161
