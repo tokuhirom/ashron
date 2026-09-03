@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/gen2brain/beeep v0.11.2
-	golang.org/x/net v0.51.0
+	golang.org/x/net v0.55.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -55,7 +55,7 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/term v0.40.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
